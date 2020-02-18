@@ -2,26 +2,7 @@
 """
 FILE: parser.py
 ------------------
-Author: Firas Abuzaid (fabuzaid@stanford.edu)
-Author: Perth Charernwattanagul (puch@stanford.edu)
-Modified: 04/21/2014
-
-Skeleton parser for CS564 programming project 1. Has useful imports and
-functions for parsing, including:
-
-1) Directory handling -- the parser takes a list of eBay json files
-and opens each file inside of a loop. You just need to fill in the rest.
-2) Dollar value conversions -- the json files store dollar value amounts in
-a string like $3,453.23 -- we provide a function to convert it to a string
-like XXXXX.xx.
-3) Date/time conversions -- the json files store dates/ times in the form
-Mon-DD-YY HH:MM:SS -- we wrote a function (transformDttm) that converts to the
-for YYYY-MM-DD HH:MM:SS, which will sort chronologically in SQL.
-
-Your job is to implement the parseJson function, which is invoked on each file by
-the main function. We create the initial Python dictionary object of items for
-you; the rest is up to you!
-Happy parsing!
+Author: CS 564 Group 45
 """
 
 import sys
@@ -182,15 +163,12 @@ def parseJson(json_file):
                     bidStr += str(Amount) + "\n"
                     files['Bids']['outfile_handle'].write(bidStr)
 
+            pass
 
-
-
-    pass
-
-    """
-    Loops through each json files provided on the command line and passes each file
-    to the parser
-    """
+"""
+Loops through each json files provided on the command line and passes each file
+to the parser
+"""
 def main(argv):
     if len(argv) < 2:
         print >> sys.stderr, 'Usage: python skeleton_json_parser.py <path to json files>'

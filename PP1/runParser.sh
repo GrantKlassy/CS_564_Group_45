@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Remove any old .dat files
-rm *.dat
+rm *.dat --force
 
 # Uncomment to test the small file
 #python2 parser.py ebay_data/items-0.json
