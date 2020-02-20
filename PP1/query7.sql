@@ -1,0 +1,1 @@
+select count(*) from (select DISTINCT name from (select itemID as ID from items where Currently > 100 and Number_of_Bids > 0 ), category where ID = itemID);

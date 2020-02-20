@@ -1,0 +1,1 @@
+select count(*) from user Where location = "New York";

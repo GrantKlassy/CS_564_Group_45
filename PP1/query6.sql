@@ -1,0 +1,1 @@
+select count(*) from (select sellerID from items group by sellerID), (select userID from bids group by userID) where sellerID = userID;

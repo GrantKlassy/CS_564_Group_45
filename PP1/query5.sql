@@ -1,0 +1,1 @@
+select count(*) from (select sellerID from items group by sellerID), user where sellerID = userID and rating > 1000
