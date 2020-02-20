@@ -13,7 +13,7 @@ CREATE TABLE Items (
     started CHAR(100) NOT NULL,
     ends CHAR(100) NOT NULL,
     description CHAR(100) NOT NULL,
-    sellerUserID INTEGER NOT NULL,
+    sellerID CHAR(100) NOT NULL,
     PRIMARY KEY (itemID)
 );
 

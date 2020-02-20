@@ -1,1 +1,1 @@
-select count(*) from (select itemID, count(*) as count from itemCategory group by itemID) where count = 4;
+select count(*) from (select itemID, count(*) as c from Categories group by itemID) where c = 4;

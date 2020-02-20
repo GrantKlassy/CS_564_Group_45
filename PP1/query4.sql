@@ -1,1 +1,1 @@
-select itemID from (select itemID, MAX(Currently) from items);
+select itemID from (select itemID, MAX(currently) from Items);
