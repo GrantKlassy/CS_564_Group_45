@@ -14,7 +14,8 @@ CREATE TABLE Items (
     ends CHAR(100) NOT NULL,
     description CHAR(100) NOT NULL,
     sellerID CHAR(100) NOT NULL,
-    PRIMARY KEY (itemID)
+    PRIMARY KEY (itemID),
+    FOREIGN KEY (userID) REFERENCES User(userID)
 );
 
 CREATE TABLE Users (
@@ -28,7 +29,8 @@ CREATE TABLE Users (
 CREATE TABLE Categories (
     category CHAR(100) NOT NULL,
     itemID INTEGER NOT NULL,
-    PRIMARY KEY (category, itemID)
+    PRIMARY KEY (category, itemID),
+    FOREIGN KEY (itemID) REFERENCES Items(itemID)
 );
 
 CREATE TABLE Bids (
@@ -36,5 +38,7 @@ CREATE TABLE Bids (
     userID CHAR(100) NOT NULL,
     bidTime CHAR(100) NOT NULL,
     amount CHAR(100) NOT NULL,
-    PRIMARY KEY (itemID, userID, bidTime)
+    PRIMARY KEY (itemID, userID, bidTime),
+    FOREIGN KEY (itemID) REFERENCES Items(itemID), 
+    FOREIGN KEY (userID) REFERENCES Users(userID)
 );
