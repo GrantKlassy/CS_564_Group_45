@@ -1,8 +1,8 @@
 .separator |
 .import Items.dat Items
-update Items set buyPrice = null where Buy_Price = 'NULL';
+update Items set buyPrice = null where buyPrice = 'NULL';
 .import Users.dat Users
-update Users set location = null where Bidder_Location = 'NULL';
-update Users set country = null where Bidder_Country = 'NULL';
+update Users set location = null where location = 'NULL';
+update Users set country = null where country = 'NULL';
 .import Categories.dat Categories
 .import Bids.dat Bids

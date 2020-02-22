@@ -15,6 +15,11 @@ columnSeparator = "|"
 MONTHS = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06',\
         'Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12'}
 
+def escape(s):
+    r = str(s).replace("\"", "\"\"")
+    r = "\"" + r + "\""
+    return r
+
 """
 Returns true if a file ends in .json
 """
@@ -99,15 +104,15 @@ def parseJson(json_file):
 
             # Create and write the string for the item
             itemStr = str(ItemID) + columnSeparator
-            itemStr += str(Name) + columnSeparator
+            itemStr += str(escape(Name)) + columnSeparator
             itemStr += str(Currently) + columnSeparator
             itemStr += str(Buy_Price) + columnSeparator
             itemStr += str(First_Bid) + columnSeparator
             itemStr += str(Number_of_Bids) + columnSeparator
             itemStr += str(Started) + columnSeparator
             itemStr += str(Ends) + columnSeparator
-            itemStr += str(Description) + columnSeparator
-            itemStr += str(Seller_UserID) + "\n"
+            itemStr += str(escape(Description)) + columnSeparator
+            itemStr += str(escape(Seller_UserID)) + "\n"
             files['Items']['outfile_handle'].write(itemStr)
 
             # Get the item fields that relate to the seller
@@ -116,10 +121,10 @@ def parseJson(json_file):
             Seller_Country = item.get('Country')
 
             # Create and write the string for the seller user
-            sellerUserStr = str(Seller_UserID) + columnSeparator
+            sellerUserStr = str(escape(Seller_UserID)) + columnSeparator
             sellerUserStr += str(Seller_Rating) + columnSeparator
-            sellerUserStr += str(Seller_Location) + columnSeparator
-            sellerUserStr += str(Seller_Country) + "\n"
+            sellerUserStr += str(escape(Seller_Location)) + columnSeparator
+            sellerUserStr += str(escape(Seller_Country)) + "\n"
             files['Users']['outfile_handle'].write(sellerUserStr)
 
             # Categories
@@ -144,10 +149,10 @@ def parseJson(json_file):
                     Bidder_Location = Raw_Bids[index].get('Bid').get('Bidder').get('Location', "NULL")
 
                     # Create and write the string for the bidder user
-                    bidderUserStr = str(Bidder_UserID) + columnSeparator
+                    bidderUserStr = str(escape(Bidder_UserID)) + columnSeparator
                     bidderUserStr += str(Bidder_Rating) + columnSeparator
-                    bidderUserStr += str(Bidder_Location) + columnSeparator
-                    bidderUserStr += str(Bidder_Country) + "\n"
+                    bidderUserStr += str(escape(Bidder_Location)) + columnSeparator
+                    bidderUserStr += str(escape(Bidder_Country)) + "\n"
                     files['Users']['outfile_handle'].write(bidderUserStr)
 
                     # Transform the things that need to be transformed
@@ -158,7 +163,7 @@ def parseJson(json_file):
 
                     # Create and write the bid string
                     bidStr = str(ItemID) + columnSeparator
-                    bidStr += str(Bidder_UserID) + columnSeparator
+                    bidStr += str(escape(Bidder_UserID)) + columnSeparator
                     bidStr += str(Time) + columnSeparator
                     bidStr += str(Amount) + "\n"
                     files['Bids']['outfile_handle'].write(bidStr)

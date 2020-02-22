@@ -3,6 +3,14 @@ DROP TABLE IF EXISTS Users;
 DROP TABLE IF EXISTS Categories;
 DROP TABLE IF EXISTS Bids;
 
+CREATE TABLE Users (
+    userID CHAR(100) NOT NULL,
+    rating INTEGER NOT NULL,
+    location CHAR(100),
+    country CHAR(100),
+    PRIMARY KEY (userID)
+);
+
 CREATE TABLE Items (
     itemID INTEGER NOT NULL,
     name CHAR(100) NOT NULL,
@@ -15,15 +23,7 @@ CREATE TABLE Items (
     description CHAR(100) NOT NULL,
     sellerID CHAR(100) NOT NULL,
     PRIMARY KEY (itemID),
-    FOREIGN KEY (userID) REFERENCES User(userID)
-);
-
-CREATE TABLE Users (
-    userID CHAR(100) NOT NULL,
-    rating INTEGER NOT NULL,
-    location CHAR(100),
-    country CHAR(100),
-    PRIMARY KEY (userID)
+    FOREIGN KEY (sellerID) REFERENCES User(userID)
 );
 
 CREATE TABLE Categories (
