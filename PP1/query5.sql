@@ -1,1 +1,6 @@
-select count(*) from (select sellerID from Items group by sellerID), Users where Items.sellerID = Users.userID and Users.rating > 1000;
+
+SELECT COUNT(*) FROM (
+	SELECT DISTINCT SellerID
+	FROM Items, Users
+	WHERE Items.sellerID = Users.userID AND Users.rating > 1000)
+

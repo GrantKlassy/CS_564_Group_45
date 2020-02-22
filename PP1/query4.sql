@@ -1,1 +1,6 @@
-select itemID from (select itemID, MAX(currently) from Items);
+
+
+SELECT itemID
+FROM ITEMS
+ORDER BY Items.currently DESC
+LIMIT 1;

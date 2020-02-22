@@ -1,1 +1,9 @@
-select count(*) from (select sellerID from Items group by sellerID), (select userID from Bids group by userID) where Items.sellerID = Bids.userID;
+SELECT COUNT(*) FROM (
+	SELECT DISTINCT sellerID
+	FROM Items
+	INTERSECT
+	SELECT DISTINCT userID
+	FROM Users
+
+
+);

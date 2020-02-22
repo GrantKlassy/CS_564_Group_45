@@ -1,1 +1,3 @@
 select count(*) from (select DISTINCT category from (select itemID as ID from Items where Items.currently > 100 and Items.numberOfBids > 0 ), Categories where ID = Categories.itemID);
+
+
