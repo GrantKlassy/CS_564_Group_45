@@ -1,0 +1,5 @@
+
+
+SELECT currently
+FROM ITEMS
+WHERE Items.itemID = 1046871451;
