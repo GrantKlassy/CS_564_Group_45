@@ -50,9 +50,12 @@ BufMgr::~BufMgr() {
 /** TODO: 
  * Just use a global var to track where we are in bufpool? This method would just inc that index but make sure to loop back around to start when it hits end
 **/
+
+// FIXME: I think instead of a global var we use the one that's in the header file for this class
+// FIXME: The implementation might be as easy as what I wrote below
 void BufMgr::advanceClock()
 {
-
+	clockHand = (clockHand + 1) % numBufs;
 }
 
 /** TODO: 
@@ -93,8 +96,26 @@ void BufMgr::flushFile(const File* file)
  * Not sure if I understand this one correctly?
  * For when you want a completely new page? Not one that already exists but you read?
  **/
+
+// FIXME Yeah I think this is like if you do an INSERT statement in SQL
+// FIXME You need to allocate the page in a frame, but you don't actually write to disk?
+// FIXME Commented what I think the implementation will look like
 void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page) 
 {
+
+	// SPEC: Allocate an empty page in the file
+	Page currPage = file->allocatePage();
+
+	// Then use allocBuf() to obtain a buffer pool frame. allocBuff will tell us what frame number we will use
+	FrameId num;
+	allocBuff(num);
+
+	// TODO Set this in bufPool?
+
+	// TODO Insert into the hash table?
+
+	// TODO Update bufDescTable?
+	
 }
 
 /** TODO: 
