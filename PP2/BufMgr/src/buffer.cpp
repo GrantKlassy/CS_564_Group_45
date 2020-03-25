@@ -82,6 +82,30 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
  **/
 void BufMgr::unPinPage(File* file, const PageId pageNo, const bool dirty) 
 {
+
+	// FIXME: Might need to be int? Documentation says integer but looking at the
+	// code it says FrameId
+	FrameId frameNo = -1;
+	try {
+		hashTable->lookup(file, pageNo, frameNo);
+	}
+	// Supposed to do nothing if isn't found in Hash table
+	catch (HashNotFoundException e) {
+		return;
+	}
+
+	// If we make it here we found the frameNo (stored in frameNo)
+	// If pin count is already 0, throw exception
+	if (bufDescTable[frameNo].pinCnt == 0) {
+		throw PageNotPinnedException(file->filename(), pageNo, frameNo);
+	} else {
+		// Decrement pincount and set dirty to true if need be
+		bufDescTable[frameNo].pinCnt--;
+		if (dirty) {
+			bufDescTable[frameNo].dirty = true;
+		}
+	}
+
 }
 
 /** TODO: 
