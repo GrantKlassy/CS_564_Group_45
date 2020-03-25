@@ -108,7 +108,7 @@ void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page)
 
 	// Then use allocBuf() to obtain a buffer pool frame. allocBuff will tell us what frame number we will use
 	FrameId num;
-	allocBuff(num);
+	allocBuf(num);
 
 	// TODO Set this in bufPool?
 
