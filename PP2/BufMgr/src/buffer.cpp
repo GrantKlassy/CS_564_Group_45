@@ -129,6 +129,7 @@ void BufMgr::flushFile(File* file)
 		for (FileIterator it = file->begin(); it != file->end(); it++) {
 			// If the pages are the same
 			// FIXME: Waiting on Piazza answer to determine how to make this comparison
+			/*
 			if ((*it).header_ == bufPool[i].header_) {
 				// Throw appropriate exceptions
 				if (bufDescTable[i].pinCnt > 0) {
@@ -148,7 +149,7 @@ void BufMgr::flushFile(File* file)
 					bufDescTable[i].Clear();
 					//FIXME: Don't need to remove from bufPool?
 				}
-			}
+			} */
 		}
 	}
 }
