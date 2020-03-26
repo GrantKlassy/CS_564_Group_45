@@ -13,6 +13,8 @@
 #include "exceptions/page_pinned_exception.h"
 #include "exceptions/bad_buffer_exception.h"
 #include "exceptions/hash_not_found_exception.h"
+#include "file.h"
+#include "file_iterator.h"
 
 namespace badgerdb { 
 
@@ -84,7 +86,8 @@ void BufMgr::unPinPage(File* file, const PageId pageNo, const bool dirty)
 {
 
 	// FIXME: Might need to be int? Documentation says integer but looking at the
-	// code it says FrameId
+	// code it says FrameId.  Also make sure I'm passing in right type of arg?
+	// Supposed to be addr?
 	FrameId frameNo = -1;
 	try {
 		hashTable->lookup(file, pageNo, frameNo);
@@ -112,8 +115,42 @@ void BufMgr::unPinPage(File* file, const PageId pageNo, const bool dirty)
  * Get's rid of all remnants of pages in bufPool, bufHashTable, bufDescTable that have to do with this page but doesn't delete the pages themselves.
  * Throws errors if things are pinned
  **/
-void BufMgr::flushFile(const File* file) 
+ // FIXME: Removed const from parameter to fix error and match spec
+void BufMgr::flushFile(File* file) 
 {
+	// Look through all of our bufpool
+	for (uint i = 0; i < numBufs; i++) {
+		// Look through all pages in our file
+		//const FileIterator * it = new FileIterator(file);
+		// FIXME: Dereferencing the iterator should give you the current page according to 
+		// How FileIterator is overloaded
+		// FIXME: Also should be NULL when we reach end?
+
+		for (FileIterator it = file->begin(); it != file->end(); it++) {
+			// If the pages are the same
+			// FIXME: Waiting on Piazza answer to determine how to make this comparison
+			if ((*it).header_ == bufPool[i].header_) {
+				// Throw appropriate exceptions
+				if (bufDescTable[i].pinCnt > 0) {
+					throw PagePinnedException(file->filename(), bufPool[i].page_number(), i);
+				} else if (bufDescTable[i].valid == false) {
+					throw BadBufferException(i, bufDescTable[i].dirty, false, bufDescTable[i].refbit);
+				} else {
+					// Write back
+					if (bufDescTable[i].dirty) {
+						// Shouldn't need to allocate first since we are just writing back.
+						file->writePage(bufPool[i]);
+						bufDescTable[i].dirty = false;
+					}
+					// Remove from hash table
+					hashTable->remove(file, bufPool[i].page_number());
+					// Remove from desc table
+					bufDescTable[i].Clear();
+					//FIXME: Don't need to remove from bufPool?
+				}
+			}
+		}
+	}
 }
 
 /** TODO: 
