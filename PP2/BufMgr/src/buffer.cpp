@@ -70,6 +70,33 @@ void BufMgr::advanceClock()
  **/
 void BufMgr::allocBuf(FrameId & frame) 
 {
+
+// COULD CAUSE ERRORS: Not sure how to set the frame ref to the open frame, look more into C++ ref vbls if problems
+
+    int c = 2*numBufs;
+    while (c > 0) {
+	if (!bufDescTable[clockhand].valid) {
+	    frame = bufDescTable[clockhand].frameNo;
+	    advanceClock();
+	    return;
+	}
+	else if (bufDescTable[clockhand].pinCnt == 0 && bufDescTable[clockhand].refBit == 1) {
+	    bufDescTable[clockhand].refBit = 0;
+	    advanceClock();
+	}
+	else if (bufDescTable[clockhand].pinCnt == 0 && bufDescTable[clockhand].refBit == 0) {
+	    if (bufDescTable[clockhand].dirty) {
+		bufDescTable[clockhand].file->writePage(bufDescTable[clockhand].pageNo, bufPool[clockhand]);
+		bufDescTable[clockhand].dirty = false;
+	    }
+	    frame = bufDescTable[clockhand].frameNo;
+            advanceClock();
+            return;
+	}
+	c--;
+    }
+    // only reaches this far if gone through 2 cycles with no available frame
+    throw BufferExceededException;
 }
 
 /** TODO: 
