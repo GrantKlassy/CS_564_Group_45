@@ -104,6 +104,43 @@ void BufMgr::allocBuf(FrameId & frame)
  **/
 void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
 {
+
+	// Check to see if the frame is in the buffer pool
+	bool frameInPool = true;
+	FrameId num;
+	try {
+		hashTable->lookup(file, pageNo, num);
+	} catch (HashNotFoundException e) {
+		frameInPool = false;
+	}
+
+	// If the frame is not in the pool...
+	if (!frameInPool) {
+		// Allocate a buffer to hold it
+		allocBuf(num);
+
+		// Read
+		Page currPage = file->readPage(num);
+		bufPool[num] = currPage;
+
+		// Insert into hash table and update desc table
+		hashTable->insert(file, pageNo, num);
+		bufDescTable[num].Set(file, pageNo);
+
+		page = &bufPool[num];
+		return;
+
+	} else {
+		// If the frame is in the pool, just read it from there
+		BufDesc* frame = &bufDescTable[num];
+		frame->refbit = true;
+		frame->pinCnt = frame->pinCnt + 1;
+
+		// Return
+		page = &bufPool[num];
+		return;
+	}
+
 }
 
 /** TODO: 
@@ -194,7 +231,7 @@ void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page)
 	// allocBuff will tell us what frame number we will use
 	FrameId num;
 	allocBuf(num);
-	bufPool[num] = newPage;
+	bufPool[num] = currPage;
 
 	// Return the page num and ptr
 	page = &bufPool[num];
