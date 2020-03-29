@@ -184,26 +184,28 @@ void BufMgr::flushFile(File* file)
  * Not sure if I understand this one correctly?
  * For when you want a completely new page? Not one that already exists but you read?
  **/
-
-// FIXME Yeah I think this is like if you do an INSERT statement in SQL
-// FIXME You need to allocate the page in a frame, but you don't actually write to disk?
-// FIXME Commented what I think the implementation will look like
-void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page) 
+void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page)
 {
 
-	// SPEC: Allocate an empty page in the file
+	// Allocate an empty page in the file
 	Page currPage = file->allocatePage();
 
-	// Then use allocBuf() to obtain a buffer pool frame. allocBuff will tell us what frame number we will use
+	// Then use allocBuf() to obtain a buffer pool frame
+	// allocBuff will tell us what frame number we will use
 	FrameId num;
 	allocBuf(num);
+	bufPool[num] = newPage;
 
-	// TODO Set this in bufPool?
+	// Return the page num and ptr
+	page = &bufPool[num];
+	pageNo = bufPool[num].page_number();
 
-	// TODO Insert into the hash table?
+	// Insert into hash table
+	hashTable->insert(file, pageNo, num);
 
-	// TODO Update bufDescTable?
-	
+	// Set up a new frame in the buffer
+	bufDescTable[num].Set(file, pageNo);
+
 }
 
 /** TODO: 
