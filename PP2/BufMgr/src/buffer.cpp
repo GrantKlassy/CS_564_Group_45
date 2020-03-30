@@ -86,7 +86,10 @@ void BufMgr::allocBuf(FrameId & frame)
 	}
 	else if (bufDescTable[clockHand].pinCnt == 0 && bufDescTable[clockHand].refbit == 0) {
 	    if (bufDescTable[clockHand].dirty) {
-		bufDescTable[clockHand].file->writePage(bufDescTable[clockHand].pageNo, bufPool[clockHand]);
+		// FIXME @Piazza 322, Find out how to write this correctly
+		//bufDescTable[clockHand].file->writePage(bufDescTable[clockHand].pageNo, bufPool[clockHand]);
+		// FIXME, like this?
+		bufDescTable[clockHand].file->writePage(bufPool[clockHand]);
 		bufDescTable[clockHand].dirty = false;
 	    }
 	    frame = bufDescTable[clockHand].frameNo;
