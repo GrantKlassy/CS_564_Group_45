@@ -75,21 +75,21 @@ void BufMgr::allocBuf(FrameId & frame)
 
     int c = 2*numBufs;
     while (c > 0) {
-	if (!bufDescTable[clockhand].valid) {
-	    frame = bufDescTable[clockhand].frameNo;
+	if (!bufDescTable[clockHand].valid) {
+	    frame = bufDescTable[clockHand].frameNo;
 	    advanceClock();
 	    return;
 	}
-	else if (bufDescTable[clockhand].pinCnt == 0 && bufDescTable[clockhand].refBit == 1) {
-	    bufDescTable[clockhand].refBit = 0;
+	else if (bufDescTable[clockHand].pinCnt == 0 && bufDescTable[clockHand].refBit == 1) {
+	    bufDescTable[clockHand].refBit = 0;
 	    advanceClock();
 	}
-	else if (bufDescTable[clockhand].pinCnt == 0 && bufDescTable[clockhand].refBit == 0) {
-	    if (bufDescTable[clockhand].dirty) {
-		bufDescTable[clockhand].file->writePage(bufDescTable[clockhand].pageNo, bufPool[clockhand]);
-		bufDescTable[clockhand].dirty = false;
+	else if (bufDescTable[clockHand].pinCnt == 0 && bufDescTable[clockHand].refBit == 0) {
+	    if (bufDescTable[clockHand].dirty) {
+		bufDescTable[clockHand].file->writePage(bufDescTable[clockHand].pageNo, bufPool[clockHand]);
+		bufDescTable[clockHand].dirty = false;
 	    }
-	    frame = bufDescTable[clockhand].frameNo;
+	    frame = bufDescTable[clockHand].frameNo;
             advanceClock();
             return;
 	}
