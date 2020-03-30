@@ -80,11 +80,11 @@ void BufMgr::allocBuf(FrameId & frame)
 	    advanceClock();
 	    return;
 	}
-	else if (bufDescTable[clockHand].pinCnt == 0 && bufDescTable[clockHand].refBit == 1) {
-	    bufDescTable[clockHand].refBit = 0;
+	else if (bufDescTable[clockHand].pinCnt == 0 && bufDescTable[clockHand].refbit == 1) {
+	    bufDescTable[clockHand].refbit = 0;
 	    advanceClock();
 	}
-	else if (bufDescTable[clockHand].pinCnt == 0 && bufDescTable[clockHand].refBit == 0) {
+	else if (bufDescTable[clockHand].pinCnt == 0 && bufDescTable[clockHand].refbit == 0) {
 	    if (bufDescTable[clockHand].dirty) {
 		bufDescTable[clockHand].file->writePage(bufDescTable[clockHand].pageNo, bufPool[clockHand]);
 		bufDescTable[clockHand].dirty = false;
