@@ -96,7 +96,7 @@ void BufMgr::allocBuf(FrameId & frame)
 	c--;
     }
     // only reaches this far if gone through 2 cycles with no available frame
-    throw BufferExceededException;
+    throw BufferExceededException();
 }
 
 /** TODO: 
