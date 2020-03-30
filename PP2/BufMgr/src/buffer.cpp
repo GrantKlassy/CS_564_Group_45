@@ -250,7 +250,17 @@ void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page)
  **/
 void BufMgr::disposePage(File* file, const PageId PageNo)
 {
-    
+		FrameId frameNum = numBufs + 1;
+		try{
+			hashTable->lookup(file, PageNo, frameNum);
+		}
+		catch(HashNotFoundException){
+			return;
+		}
+
+		bufDescTable[frameNum].Clear();
+		hashTable->remove(file, PageNo);
+		file->deletePage(PageNo);
 }
 
 void BufMgr::printSelf(void) 
