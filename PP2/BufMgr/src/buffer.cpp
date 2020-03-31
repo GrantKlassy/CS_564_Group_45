@@ -76,15 +76,20 @@ void BufMgr::allocBuf(FrameId & frame)
     int c = 2*numBufs;
     while (c > 0) {
 	if (!bufDescTable[clockHand].valid) {
+		//printf("CASE1\n");
+		// FIXME: Is this where we want to set valid
+		bufDescTable[clockHand].valid = true;
 	    frame = bufDescTable[clockHand].frameNo;
 	    advanceClock();
 	    return;
 	}
 	else if (bufDescTable[clockHand].pinCnt == 0 && bufDescTable[clockHand].refbit == 1) {
+		//printf("CASE2\n");
 	    bufDescTable[clockHand].refbit = 0;
 	    advanceClock();
 	}
 	else if (bufDescTable[clockHand].pinCnt == 0 && bufDescTable[clockHand].refbit == 0) {
+		//printf("CASE3\n");
 	    if (bufDescTable[clockHand].dirty) {
 		// FIXME @Piazza 322, Find out how to write this correctly
 		//bufDescTable[clockHand].file->writePage(bufDescTable[clockHand].pageNo, bufPool[clockHand]);
@@ -93,6 +98,8 @@ void BufMgr::allocBuf(FrameId & frame)
 		bufDescTable[clockHand].dirty = false;
 	    }
 	    frame = bufDescTable[clockHand].frameNo;
+	    // FIXME: Correct spot to set valid?
+	    bufDescTable[clockHand].valid = 1;
             advanceClock();
             return;
 	}
@@ -119,11 +126,13 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
 
 	// If the frame is not in the pool...
 	if (!frameInPool) {
+
+		//printf("Entering readpage1\n");
 		// Allocate a buffer to hold it
 		allocBuf(num);
 
 		// Read
-		Page currPage = file->readPage(num);
+		Page currPage = file->readPage(pageNo);
 		bufPool[num] = currPage;
 
 		// Insert into hash table and update desc table
@@ -131,9 +140,11 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
 		bufDescTable[num].Set(file, pageNo);
 
 		page = &bufPool[num];
+		//printf("Exiting readpage1\n");
 		return;
 
 	} else {
+		//printf("Entering readpage2\n");
 		// If the frame is in the pool, just read it from there
 		BufDesc* frame = &bufDescTable[num];
 		frame->refbit = true;
@@ -141,8 +152,10 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
 
 		// Return
 		page = &bufPool[num];
+		//printf("Exiting readpage2\n");
 		return;
 	}
+
 
 }
 

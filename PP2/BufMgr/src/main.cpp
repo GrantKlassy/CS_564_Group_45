@@ -317,8 +317,12 @@ void test6()
 {
 	//flushing file with pages still pinned. Should generate an error
 	for (i = 1; i <= num; i++) {
+		//gio
+		//printf("iteration: %d, about to readpage\n", i);
 		bufMgr->readPage(file1ptr, i, page);
 	}
+	//gio
+	//printf("PASSED T6P1\n");
 
 	try
 	{
