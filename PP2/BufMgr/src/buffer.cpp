@@ -46,7 +46,16 @@ BufMgr::BufMgr(std::uint32_t bufs)
  * I believe already completed? Just wipes our buffer frames
  **/
 BufMgr::~BufMgr() {
+
+	for (FrameId i = 0; i < numBufs; i++) {
+		if (bufDescTable[i].valid == 1 && bufDescTable[i].dirty == 1) {
+			// FIXME: Our current way of writing to file, might be wrong?
+			 bufDescTable[i].file->writePage(bufPool[i]);
+		}
+	}
+	delete [] bufDescTable;
 	delete [] bufPool;
+	delete hashTable;
 }
 
 /** TODO: 
