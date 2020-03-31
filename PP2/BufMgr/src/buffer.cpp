@@ -43,7 +43,7 @@ BufMgr::BufMgr(std::uint32_t bufs)
 }
 
 /**
- * I believe already completed? Just wipes our buffer frames
+ * Wipes frames and writes to disk if dirty
  **/
 BufMgr::~BufMgr() {
 
