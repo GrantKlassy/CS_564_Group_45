@@ -50,7 +50,9 @@ BufMgr::~BufMgr() {
 	for (FrameId i = 0; i < numBufs; i++) {
 		if (bufDescTable[i].valid == 1 && bufDescTable[i].dirty == 1) {
 			// FIXME: Our current way of writing to file, might be wrong?
-			 bufDescTable[i].file->writePage(bufPool[i]);
+			// bufDescTable[i].file->writePage(bufPool[i]);
+			// FIXME: I think we use flush file here?
+			flushFile(bufDescTable[i].file);
 		}
 	}
 	delete [] bufDescTable;
@@ -118,7 +120,7 @@ void BufMgr::allocBuf(FrameId & frame)
     throw BufferExceededException();
 }
 
-/** TODO: 
+/** 
  * Described implementation pretty well in spec.  See that.
  **/
 void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
@@ -242,7 +244,7 @@ void BufMgr::flushFile(File* file)
 	}
 }
 
-/** TODO: 
+/**
  * Not sure if I understand this one correctly?
  * For when you want a completely new page? Not one that already exists but you read?
  **/
@@ -270,7 +272,7 @@ void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page)
 
 }
 
-/** TODO: 
+/**
  * Get rid of page from bufDescTable, bufpool, HashTable, and finally the page itself?
  **/
 void BufMgr::disposePage(File* file, const PageId PageNo)
@@ -280,8 +282,12 @@ void BufMgr::disposePage(File* file, const PageId PageNo)
 			hashTable->lookup(file, PageNo, frameNum);
 		}
 		catch(HashNotFoundException){
+			// We still need to delete the page from the file here, just not the buffer
+			file->deletePage(PageNo);
 			return;
 		}
+
+		// TODO Check if the page is being pinned?
 
 		bufDescTable[frameNum].Clear();
 		hashTable->remove(file, PageNo);
