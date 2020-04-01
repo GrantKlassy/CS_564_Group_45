@@ -227,10 +227,10 @@ void BufMgr::flushFile(File* file)
 				} else if (bufDescTable[i].valid == false) {
 					throw BadBufferException(i, bufDescTable[i].dirty, false, bufDescTable[i].refbit);
 				} else {
-					printf("No exceptions in flush file\n");
+					//printf("No exceptions in flush file\n");
 					// Write back
 					if (bufDescTable[i].dirty) {
-						printf("File dirty\n");
+						//printf("File dirty\n");
 						// Shouldn't need to allocate first since we are just writing back.
 						file->writePage(bufPool[i]);
 						bufDescTable[i].dirty = false;
@@ -242,7 +242,7 @@ void BufMgr::flushFile(File* file)
 					//FIXME: Don't need to remove from bufPool?
 				}
 			}
-			printf("Removed and written back\n");
+			//printf("Removed and written back\n");
 	}
 }
 
