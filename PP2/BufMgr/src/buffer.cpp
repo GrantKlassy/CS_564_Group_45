@@ -220,11 +220,7 @@ void BufMgr::flushFile(File* file)
 		// How FileIterator is overloaded
 		// FIXME: Also should be NULL when we reach end?
 
-		for (FileIterator it = file->begin(); it != file->end(); it++) {
-			printf("Found file to flush\n");
-			// If the pages are the same
-			// FIXME: Maybe put this above fileiterator for loop to reduce #comparisons
-			if (file->filename() == bufDescTable[i].file->filename()) {
+			if (file == bufDescTable[i].file) {
 				// Throw appropriate exceptions
 				if (bufDescTable[i].pinCnt > 0) {
 					throw PagePinnedException(file->filename(), bufPool[i].page_number(), i);
@@ -247,7 +243,6 @@ void BufMgr::flushFile(File* file)
 				}
 			}
 			printf("Removed and written back\n");
-		}
 	}
 }
 
