@@ -3,6 +3,7 @@
 //#include <stdio.h>
 #include <cstring>
 #include <memory>
+#include "file.h"
 #include "page.h"
 #include "buffer.h"
 #include "file_iterator.h"
@@ -12,6 +13,7 @@
 #include "exceptions/page_not_pinned_exception.h"
 #include "exceptions/page_pinned_exception.h"
 #include "exceptions/buffer_exceeded_exception.h"
+#include "exceptions/bad_buffer_exception.h"
 
 #define PRINT_ERROR(str) \
 { \
@@ -354,7 +356,7 @@ void test7()
                 rid[i] = page->insertRecord(tmpbuf);
         }
 
-	bufMgr->unPinPage(file5ptr, 1, true);
+	bufMgr->unPinPage(file5ptr, pid[1], true);
 
         PageId tmp;
         try
@@ -374,27 +376,35 @@ void test7()
 
 void test8()
 {
-	//dispose a page while it's pinned
+	//test if pages written back after flushFile, then the destructor
 	for (i = 1; i <= num; i++) {
-                //gio
-                //printf("iteration: %d, about to readpage\n", i);
                 bufMgr->readPage(file1ptr, i, page);
         }
-        
-        try     
-        {       
-                bufMgr->disposePage(file1ptr, 1);
-                PRINT_ERROR("ERROR :: Page being disposed is pinned. Exception should have been thrown before execution reaches this point.");
-        }
-        catch(PagePinnedException &e)
-        {
-        }
-        
-        std::cout << "Test 8 passed" << "\n";
-        
         for (i = 1; i <= num; i++) 
                 bufMgr->unPinPage(file1ptr, i, true);
         
-        bufMgr->flushFile(file1ptr);
-}
+	try {
+		std::cout << "made it in first try" << "\n";
+		bufMgr->flushFile(file1ptr);
+		std::cout << "still in first try" << "\n";
+	}
+	catch(BadBufferException &e)
+	{
+		PRINT_ERROR("ERROR :: Flushing file with an invalid page.");
+	}
+	catch(PagePinnedException &e2)
+	{
+		PRINT_ERROR("ERROR :: Flushing file with a pinned page.");
+	}
+	std::cout << "made it past first try" << "\n";
 
+	try {
+		file1ptr->readPage(pid[i]);
+	}
+	catch(InvalidPageException &e)
+	{
+		PRINT_ERROR("ERROR :: Page not written back to disk correctly.");
+	}
+
+	std::cout << "Test 8 passed" << "\n";
+}

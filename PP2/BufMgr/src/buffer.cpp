@@ -85,7 +85,7 @@ void BufMgr::allocBuf(FrameId & frame)
     int c = 2*numBufs;
     while (c > 0) {
 	if (!bufDescTable[clockHand].valid) {
-		printf("CASE1\n");
+		//printf("CASE1\n");
 		// FIXME: Is this where we want to set valid
 	    bufDescTable[clockHand].valid = true;
 	    frame = bufDescTable[clockHand].frameNo;
@@ -93,14 +93,14 @@ void BufMgr::allocBuf(FrameId & frame)
 	    return;
 	}
 	else if (bufDescTable[clockHand].pinCnt == 0) {
-	    printf("CASE2\n");
+	    //printf("CASE2\n");
 	    if (bufDescTable[clockHand].refbit == 1) {
-		printf("CASE2.5\n");
+		//printf("CASE2.5\n");
 	        bufDescTable[clockHand].refbit = 0;
 	        advanceClock();
 	    }
 	    else if (bufDescTable[clockHand].refbit == 0) {
-		printf("CASE3\n");
+		//printf("CASE3\n");
 	    	if (bufDescTable[clockHand].dirty) {
 		    bufDescTable[clockHand].file->writePage(bufPool[clockHand]);
 		    bufDescTable[clockHand].dirty = false;
@@ -113,7 +113,8 @@ void BufMgr::allocBuf(FrameId & frame)
 	    }
 	}
 	else {
-	    printf("else\n");
+	    //printf("else\n");
+	    //printf("%d\n", bufDescTable[clockHand].pinCnt);
 	    advanceClock();
 	}
 	c--;
@@ -220,6 +221,7 @@ void BufMgr::flushFile(File* file)
 		// FIXME: Also should be NULL when we reach end?
 
 		for (FileIterator it = file->begin(); it != file->end(); it++) {
+			printf("Found file to flush\n");
 			// If the pages are the same
 			// FIXME: Maybe put this above fileiterator for loop to reduce #comparisons
 			if (file->filename() == bufDescTable[i].file->filename()) {
@@ -229,8 +231,10 @@ void BufMgr::flushFile(File* file)
 				} else if (bufDescTable[i].valid == false) {
 					throw BadBufferException(i, bufDescTable[i].dirty, false, bufDescTable[i].refbit);
 				} else {
+					printf("No exceptions in flush file\n");
 					// Write back
 					if (bufDescTable[i].dirty) {
+						printf("File dirty\n");
 						// Shouldn't need to allocate first since we are just writing back.
 						file->writePage(bufPool[i]);
 						bufDescTable[i].dirty = false;
@@ -242,6 +246,7 @@ void BufMgr::flushFile(File* file)
 					//FIXME: Don't need to remove from bufPool?
 				}
 			}
+			printf("Removed and written back\n");
 		}
 	}
 }
