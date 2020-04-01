@@ -82,37 +82,39 @@ void BufMgr::advanceClock()
 void BufMgr::allocBuf(FrameId & frame) 
 {
 
-// COULD CAUSE ERRORS: Not sure how to set the frame ref to the open frame, look more into C++ ref vbls if problems
-
     int c = 2*numBufs;
     while (c > 0) {
 	if (!bufDescTable[clockHand].valid) {
-		//printf("CASE1\n");
+		printf("CASE1\n");
 		// FIXME: Is this where we want to set valid
-		bufDescTable[clockHand].valid = true;
+	    bufDescTable[clockHand].valid = true;
 	    frame = bufDescTable[clockHand].frameNo;
 	    advanceClock();
 	    return;
 	}
-	else if (bufDescTable[clockHand].pinCnt == 0 && bufDescTable[clockHand].refbit == 1) {
-		//printf("CASE2\n");
-	    bufDescTable[clockHand].refbit = 0;
-	    advanceClock();
-	}
-	else if (bufDescTable[clockHand].pinCnt == 0 && bufDescTable[clockHand].refbit == 0) {
-		//printf("CASE3\n");
-	    if (bufDescTable[clockHand].dirty) {
-		// FIXME @Piazza 322, Find out how to write this correctly
-		//bufDescTable[clockHand].file->writePage(bufDescTable[clockHand].pageNo, bufPool[clockHand]);
-		// FIXME, like this?
-		bufDescTable[clockHand].file->writePage(bufPool[clockHand]);
-		bufDescTable[clockHand].dirty = false;
+	else if (bufDescTable[clockHand].pinCnt == 0) {
+	    printf("CASE2\n");
+	    if (bufDescTable[clockHand].refbit == 1) {
+		printf("CASE2.5\n");
+	        bufDescTable[clockHand].refbit = 0;
+	        advanceClock();
 	    }
-	    frame = bufDescTable[clockHand].frameNo;
-	    // FIXME: Correct spot to set valid?
-	    bufDescTable[clockHand].valid = 1;
-            advanceClock();
-            return;
+	    else if (bufDescTable[clockHand].refbit == 0) {
+		printf("CASE3\n");
+	    	if (bufDescTable[clockHand].dirty) {
+		    bufDescTable[clockHand].file->writePage(bufPool[clockHand]);
+		    bufDescTable[clockHand].dirty = false;
+	        }
+	    	frame = bufDescTable[clockHand].frameNo;
+	    	// FIXME: Correct spot to set valid?
+	    	bufDescTable[clockHand].valid = 1;
+            	advanceClock();
+            	return;
+	    }
+	}
+	else {
+	    printf("else\n");
+	    advanceClock();
 	}
 	c--;
     }

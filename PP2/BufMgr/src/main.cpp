@@ -58,6 +58,8 @@ void test3();
 void test4();
 void test5();
 void test6();
+void test7();
+void test8();
 void testBufMgr();
 
 int main() 
@@ -172,6 +174,8 @@ void testBufMgr()
 	fork_test(test4);
 	fork_test(test5);
 	fork_test(test6);
+	fork_test(test7);
+	fork_test(test8);
 
 	//Close files before deleting them
 	file1.close();
@@ -340,3 +344,57 @@ void test6()
 
 	bufMgr->flushFile(file1ptr);
 }
+
+void test7()
+{
+	//fill bufferpool, unpin a page, and try to add another
+	for (i = 0; i < num; i++) {
+                bufMgr->allocPage(file5ptr, pid[i], page);
+                sprintf((char*)tmpbuf, "test.5 Page %d %7.1f", pid[i], (float)pid[i]);
+                rid[i] = page->insertRecord(tmpbuf);
+        }
+
+	bufMgr->unPinPage(file5ptr, 1, true);
+
+        PageId tmp;
+        try
+        {
+                bufMgr->allocPage(file5ptr, tmp, page);
+        }
+        catch(BufferExceededException &e)
+        {
+		PRINT_ERROR("ERROR :: No more frames left for allocation, but one should be from page being unpinned.");
+        }
+
+        std::cout << "Test 7 passed" << "\n";
+
+        for (i = 1; i <= num; i++)
+                bufMgr->unPinPage(file5ptr, i, true);
+}
+
+void test8()
+{
+	//dispose a page while it's pinned
+	for (i = 1; i <= num; i++) {
+                //gio
+                //printf("iteration: %d, about to readpage\n", i);
+                bufMgr->readPage(file1ptr, i, page);
+        }
+        
+        try     
+        {       
+                bufMgr->disposePage(file1ptr, 1);
+                PRINT_ERROR("ERROR :: Page being disposed is pinned. Exception should have been thrown before execution reaches this point.");
+        }
+        catch(PagePinnedException &e)
+        {
+        }
+        
+        std::cout << "Test 8 passed" << "\n";
+        
+        for (i = 1; i <= num; i++) 
+                bufMgr->unPinPage(file1ptr, i, true);
+        
+        bufMgr->flushFile(file1ptr);
+}
+
