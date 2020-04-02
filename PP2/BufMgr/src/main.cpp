@@ -61,7 +61,6 @@ void test4();
 void test5();
 void test6();
 void test7();
-void test8();
 void testBufMgr();
 
 int main() 
@@ -177,7 +176,6 @@ void testBufMgr()
 	fork_test(test5);
 	fork_test(test6);
 	fork_test(test7);
-	fork_test(test8);
 
 	//Close files before deleting them
 	file1.close();
@@ -374,37 +372,37 @@ void test7()
                 bufMgr->unPinPage(file5ptr, i, true);
 }
 
-void test8()
-{
-	//test if pages written back after flushFile, then the destructor
-	for (i = 1; i <= num; i++) {
-                bufMgr->readPage(file1ptr, i, page);
-        }
-        for (i = 1; i <= num; i++) 
-                bufMgr->unPinPage(file1ptr, i, true);
-        
-	try {
-		std::cout << "made it in first try" << "\n";
-		bufMgr->flushFile(file1ptr);
-		std::cout << "still in first try" << "\n";
-	}
-	catch(BadBufferException &e)
-	{
-		PRINT_ERROR("ERROR :: Flushing file with an invalid page.");
-	}
-	catch(PagePinnedException &e2)
-	{
-		PRINT_ERROR("ERROR :: Flushing file with a pinned page.");
-	}
-	std::cout << "made it past first try" << "\n";
-
-	try {
-		file1ptr->readPage(pid[i]);
-	}
-	catch(InvalidPageException &e)
-	{
-		PRINT_ERROR("ERROR :: Page not written back to disk correctly.");
-	}
-
-	std::cout << "Test 8 passed" << "\n";
-}
+//void test8()
+//{
+//	//test if pages written back after flushFile, then the destructor
+//	for (i = 1; i <= num; i++) {
+//              bufMgr->readPage(file1ptr, i, page);
+//      }
+//      for (i = 1; i <= num; i++) 
+//              bufMgr->unPinPage(file1ptr, i, true);
+//        
+//	try {
+//		std::cout << "made it in first try" << "\n";
+//		bufMgr->flushFile(file1ptr);
+//		std::cout << "still in first try" << "\n";
+//	}
+//	catch(BadBufferException &e)
+//	{
+//		PRINT_ERROR("ERROR :: Flushing file with an invalid page.");
+//	}
+//	catch(PagePinnedException &e2)
+//	{
+//		PRINT_ERROR("ERROR :: Flushing file with a pinned page.");
+//	}
+//	std::cout << "made it past first try" << "\n";
+//
+//	try {
+//		file1ptr->readPage(pid[i]);
+//	}
+//	catch(InvalidPageException &e)
+//	{
+//		PRINT_ERROR("ERROR :: Page not written back to disk correctly.");
+//	}
+//
+//	std::cout << "Test 8 passed" << "\n";
+//}

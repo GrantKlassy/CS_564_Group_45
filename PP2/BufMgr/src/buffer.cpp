@@ -49,9 +49,6 @@ BufMgr::~BufMgr() {
 
 	for (FrameId i = 0; i < numBufs; i++) {
 		if (bufDescTable[i].valid == 1 && bufDescTable[i].dirty == 1) {
-			// FIXME: Our current way of writing to file, might be wrong?
-			// bufDescTable[i].file->writePage(bufPool[i]);
-			// FIXME: I think we use flush file here?
 			flushFile(bufDescTable[i].file);
 		}
 	}
@@ -64,8 +61,6 @@ BufMgr::~BufMgr() {
  * Just use a global var to track where we are in bufpool? This method would just inc that index but make sure to loop back around to start when it hits end
 **/
 
-// FIXME: I think instead of a global var we use the one that's in the header file for this class
-// FIXME: The implementation might be as easy as what I wrote below
 void BufMgr::advanceClock()
 {
 	clockHand = (clockHand + 1) % numBufs;
@@ -85,36 +80,28 @@ void BufMgr::allocBuf(FrameId & frame)
     int c = 2*numBufs;
     while (c > 0) {
 	if (!bufDescTable[clockHand].valid) {
-		//printf("CASE1\n");
-		// FIXME: Is this where we want to set valid
 	    bufDescTable[clockHand].valid = true;
 	    frame = bufDescTable[clockHand].frameNo;
 	    advanceClock();
 	    return;
 	}
 	else if (bufDescTable[clockHand].pinCnt == 0) {
-	    //printf("CASE2\n");
 	    if (bufDescTable[clockHand].refbit == 1) {
-		//printf("CASE2.5\n");
 	        bufDescTable[clockHand].refbit = 0;
 	        advanceClock();
 	    }
 	    else if (bufDescTable[clockHand].refbit == 0) {
-		//printf("CASE3\n");
 	    	if (bufDescTable[clockHand].dirty) {
 		    bufDescTable[clockHand].file->writePage(bufPool[clockHand]);
 		    bufDescTable[clockHand].dirty = false;
 	        }
 	    	frame = bufDescTable[clockHand].frameNo;
-	    	// FIXME: Correct spot to set valid?
 	    	bufDescTable[clockHand].valid = 1;
             	advanceClock();
             	return;
 	    }
 	}
 	else {
-	    //printf("else\n");
-	    //printf("%d\n", bufDescTable[clockHand].pinCnt);
 	    advanceClock();
 	}
 	c--;
@@ -141,7 +128,6 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
 	// If the frame is not in the pool...
 	if (!frameInPool) {
 
-		//printf("Entering readpage1\n");
 		// Allocate a buffer to hold it
 		allocBuf(num);
 
@@ -154,11 +140,9 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
 		bufDescTable[num].Set(file, pageNo);
 
 		page = &bufPool[num];
-		//printf("Exiting readpage1\n");
 		return;
 
 	} else {
-		//printf("Entering readpage2\n");
 		// If the frame is in the pool, just read it from there
 		BufDesc* frame = &bufDescTable[num];
 		frame->refbit = true;
@@ -166,7 +150,6 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
 
 		// Return
 		page = &bufPool[num];
-		//printf("Exiting readpage2\n");
 		return;
 	}
 
@@ -179,9 +162,6 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
 void BufMgr::unPinPage(File* file, const PageId pageNo, const bool dirty) 
 {
 
-	// FIXME: Might need to be int? Documentation says integer but looking at the
-	// code it says FrameId.  Also make sure I'm passing in right type of arg?
-	// Supposed to be addr?
 	FrameId frameNo = -1;
 	try {
 		hashTable->lookup(file, pageNo, frameNo);
@@ -209,21 +189,14 @@ void BufMgr::unPinPage(File* file, const PageId pageNo, const bool dirty)
  * Get's rid of all remnants of pages in bufPool, bufHashTable, bufDescTable that have to do with this page but doesn't delete the pages themselves.
  * Throws errors if things are pinned
  **/
- // FIXME: Removed const from parameter to fix error and match spec
 void BufMgr::flushFile(File* file) 
 {
 	// Look through all of our bufpool
 	for (uint i = 0; i < numBufs; i++) {
 		// Look through all pages in our file
-		//const FileIterator * it = new FileIterator(file);
-		// FIXME: Dereferencing the iterator should give you the current page according to 
-		// How FileIterator is overloaded
-		// FIXME: Also should be NULL when we reach end?
 
 		for (FileIterator it = file->begin(); it != file->end(); it++) {
-			printf("Found file to flush\n");
 			// If the pages are the same
-			// FIXME: Maybe put this above fileiterator for loop to reduce #comparisons
 			if (file->filename() == bufDescTable[i].file->filename()) {
 				// Throw appropriate exceptions
 				if (bufDescTable[i].pinCnt > 0) {
@@ -231,10 +204,8 @@ void BufMgr::flushFile(File* file)
 				} else if (bufDescTable[i].valid == false) {
 					throw BadBufferException(i, bufDescTable[i].dirty, false, bufDescTable[i].refbit);
 				} else {
-					printf("No exceptions in flush file\n");
 					// Write back
 					if (bufDescTable[i].dirty) {
-						printf("File dirty\n");
 						// Shouldn't need to allocate first since we are just writing back.
 						file->writePage(bufPool[i]);
 						bufDescTable[i].dirty = false;
@@ -243,10 +214,8 @@ void BufMgr::flushFile(File* file)
 					hashTable->remove(file, bufPool[i].page_number());
 					// Remove from desc table
 					bufDescTable[i].Clear();
-					//FIXME: Don't need to remove from bufPool?
 				}
 			}
-			printf("Removed and written back\n");
 		}
 	}
 }
@@ -293,8 +262,6 @@ void BufMgr::disposePage(File* file, const PageId PageNo)
 			file->deletePage(PageNo);
 			return;
 		}
-
-		// TODO Check if the page is being pinned?
 
 		bufDescTable[frameNum].Clear();
 		hashTable->remove(file, PageNo);
