@@ -1,5 +1,5 @@
 /**
- * @author See Contributors.txt for code contributors and overview of BadgerDB.
+ * @author Group 45 CS 540 UW-Madison Spring 2020
  *
  * @section LICENSE
  * Copyright (c) 2012 Database Group, Computer Sciences Department, University of Wisconsin-Madison.
@@ -16,17 +16,15 @@
 #include "file.h"
 #include "file_iterator.h"
 
-namespace badgerdb { 
+namespace badgerdb {
 
-	/**
-	 * Constructor class given to us.  Initialized empty frames, empty buffer pool and empty hashtable
-	 **/
+	// See Doxygen output, the PDF spec for PP2, or buffer.hpp
 	BufMgr::BufMgr(std::uint32_t bufs)
 		: numBufs(bufs) {
 			bufDescTable = new BufDesc[bufs];
 
 			// bufDescTable is just the status of what's at it's corresponding buffer frame
-			for (FrameId i = 0; i < bufs; i++) 
+			for (FrameId i = 0; i < bufs; i++)
 			{
 				bufDescTable[i].frameNo = i;
 				bufDescTable[i].valid = false;
@@ -42,9 +40,7 @@ namespace badgerdb {
 			clockHand = bufs - 1;
 		}
 
-	/**
-	 * Wipes frames and writes to disk if dirty
-	 **/
+	// See Doxygen output, the PDF spec for PP2, or buffer.hpp
 	BufMgr::~BufMgr() {
 
 		for (FrameId i = 0; i < numBufs; i++) {
@@ -57,25 +53,23 @@ namespace badgerdb {
 		delete hashTable;
 	}
 
-	/** TODO: 
-	 * Just use a global var to track where we are in bufpool? This method would just inc that index but make sure to loop back around to start when it hits end
-	 **/
-
+	// See Doxygen output, the PDF spec for PP2, or buffer.hpp
 	void BufMgr::advanceClock()
 	{
 		clockHand = (clockHand + 1) % numBufs;
 	}
 
-	/** TODO: 
-	 * Keep track of where you started.  Increment through bufDescTable using advance clock until you find first page with pinCnt = 0 or valid = 0.  
-	 * If valid = 0, put it there. 
-	 * If valid = 1 and pinCnt = 0 and refbit = 1, dec refbit. 
-	 * If valid = 1, pinCnt = 0, refBit = 0.  Place it here, making sure to write things back if dirty bit is 1.
-	 * Once you place it, make sure to advance the clock before leaving
-	 * If you go around twice that means all the pinCounts are used, return error
-	 **/
+	// See Doxygen output, the PDF spec for PP2, or buffer.hpp
 	void BufMgr::allocBuf(FrameId & frame) 
 	{
+		/**
+		 * Keep track of where you started.  Increment through bufDescTable using advance clock until you find first page with pinCnt = 0 or valid = 0.  
+		 * If valid = 0, put it there. 
+		 * If valid = 1 and pinCnt = 0 and refbit = 1, dec refbit. 
+		 * If valid = 1, pinCnt = 0, refBit = 0.  Place it here, making sure to write things back if dirty bit is 1.
+		 * Once you place it, make sure to advance the clock before leaving
+		 * If you go around twice that means all the pinCounts are used, return error
+		 **/
 
 		int c = 2*numBufs;
 		while (c > 0) {
@@ -110,9 +104,7 @@ namespace badgerdb {
 		throw BufferExceededException();
 	}
 
-	/** 
-	 * Described implementation pretty well in spec.  See that.
-	 **/
+	// See Doxygen output, the PDF spec for PP2, or buffer.hpp
 	void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
 	{
 
@@ -156,9 +148,7 @@ namespace badgerdb {
 
 	}
 
-	/** TODO: 
-	 * Described implementation pretty well in spec.  See that.
-	 **/
+	// See Doxygen output, the PDF spec for PP2, or buffer.hpp
 	void BufMgr::unPinPage(File* file, const PageId pageNo, const bool dirty) 
 	{
 
@@ -185,10 +175,7 @@ namespace badgerdb {
 
 	}
 
-	/** TODO: 
-	 * Get's rid of all remnants of pages in bufPool, bufHashTable, bufDescTable that have to do with this page but doesn't delete the pages themselves.
-	 * Throws errors if things are pinned
-	 **/
+	// See Doxygen output, the PDF spec for PP2, or buffer.hpp
 	void BufMgr::flushFile(File* file) 
 	{
 		// Look through all of our bufpool
@@ -217,10 +204,7 @@ namespace badgerdb {
 		}
 	}
 
-	/**
-	 * Not sure if I understand this one correctly?
-	 * For when you want a completely new page? Not one that already exists but you read?
-	 **/
+	// See Doxygen output, the PDF spec for PP2, or buffer.hpp
 	void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page)
 	{
 
@@ -245,9 +229,7 @@ namespace badgerdb {
 
 	}
 
-	/**
-	 * Get rid of page from bufDescTable, bufpool, HashTable, and finally the page itself?
-	 **/
+	// See Doxygen output, the PDF spec for PP2, or buffer.hpp
 	void BufMgr::disposePage(File* file, const PageId PageNo)
 	{
 		FrameId frameNum = numBufs + 1;
@@ -265,7 +247,8 @@ namespace badgerdb {
 		file->deletePage(PageNo);
 	}
 
-	void BufMgr::printSelf(void) 
+	// See Doxygen output, the PDF spec for PP2, or buffer.hpp
+	void BufMgr::printSelf(void)
 	{
 		BufDesc* tmpbuf;
 		int validFrames = 0;
