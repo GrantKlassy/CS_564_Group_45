@@ -195,26 +195,23 @@ void BufMgr::flushFile(File* file)
 	for (uint i = 0; i < numBufs; i++) {
 		// Look through all pages in our file
 
-		for (FileIterator it = file->begin(); it != file->end(); it++) {
-			// If the pages are the same
-			if (file->filename() == bufDescTable[i].file->filename()) {
-				// Throw appropriate exceptions
-				if (bufDescTable[i].pinCnt > 0) {
-					throw PagePinnedException(file->filename(), bufPool[i].page_number(), i);
-				} else if (bufDescTable[i].valid == false) {
-					throw BadBufferException(i, bufDescTable[i].dirty, false, bufDescTable[i].refbit);
-				} else {
-					// Write back
-					if (bufDescTable[i].dirty) {
-						// Shouldn't need to allocate first since we are just writing back.
-						file->writePage(bufPool[i]);
-						bufDescTable[i].dirty = false;
-					}
-					// Remove from hash table
-					hashTable->remove(file, bufPool[i].page_number());
-					// Remove from desc table
-					bufDescTable[i].Clear();
+		if (file == bufDescTable[i].file) {
+			// Throw appropriate exceptions
+			if (bufDescTable[i].pinCnt > 0) {
+				throw PagePinnedException(file->filename(), bufPool[i].page_number(), i);
+			} else if (bufDescTable[i].valid == false) {
+				throw BadBufferException(i, bufDescTable[i].dirty, false, bufDescTable[i].refbit);
+			} else {
+				// Write back
+				if (bufDescTable[i].dirty) {
+					// Shouldn't need to allocate first since we are just writing back.
+					file->writePage(bufPool[i]);
+					bufDescTable[i].dirty = false;
 				}
+				// Remove from hash table
+				hashTable->remove(file, bufPool[i].page_number());
+				// Remove from desc table
+				bufDescTable[i].Clear();
 			}
 		}
 	}
