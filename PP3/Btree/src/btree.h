@@ -128,6 +128,11 @@ struct IndexMetaInfo{
    * Page number of root page of the B+ Tree inside the file index file.
    */
 	PageId rootPageNo;
+
+  /**
+   * Whether or not root node is currently a leaf
+   */
+	bool rootLeaf;
 };
 
 /*
@@ -207,6 +212,11 @@ class BTreeIndex {
    * page number of root page of B+ tree inside index file.
    */
 	PageId	rootPageNum;
+
+  /**
+   * True if the root node is currently a leaf
+   */
+	bool rootLeaf;
 
   /**
    * Datatype of attribute over which index is built.
