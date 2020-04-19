@@ -38,45 +38,61 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 	idxStr << relationName << '.' << attrByteOffset;
 	std::string indexName = idxStr.str(); // name of index file
 
+	Page* myMetaPage;
+	IndexMetaInfo* myMetaInfo;
+
+	this->bufMgr = befMgrIn;
+	this->currentPageNum = 0;
+	this->scanExecuting = false;
+	// Should always be integer
+	this->attributeType = attrType;
+
+
 	// Find out if the file exists
-	// FIXME: Am I calling these functions correctly
-	// FIXME: Is BlobFile the right type of file to be making?
-	BlobFile myFile;
-	if (!(exists(indexName))) {
-		myFile = create(indexName);
-		 
+	if (!(File::exists(indexName))) {
+		this->file = new BlobFile(indexName, true);
+
+		// Scanner to look through files
+		// Directly taken from main.cpp so this should scan through it correctly
+		FileScan fscan(relationName, this->bufMgr);
+   	     	try {
+			RecordId scanRid;
+               		while(1) {
+                		fscan.scanNext(scanRid);
+                        	//Assuming RECORD.i is our key, lets extract the key, which we know is INTEGER and whose byte offset is also know inside the record.
+                        	std::string recordStr = fscan.getRecord();
+                        	const char *record = recordStr.c_str();
+				// Edited by mike to be int*
+                        	int * key = ((int *)(record + offsetof (RECORD, i)));
+                        	//std::cout << "Extracted : " << key << std::endl;
+
+				// Added by mike
+				// Call insert on each entry?
+				// FIXME: Is this right
+				insertEntry(key, scanRid);
+       		        }
+        	}
+        	catch(EndOfFileException e) {
+        		//std::cout << "Read all records" << std::endl;
+        	}
+
+		//TODO: Still have to update meta data
+
 	} else {
 		// open file
 		// This is "“raw” file, i.e., it has no page structure on top of it"
-		myFile = open(indexName);
+		this->file = new BlobFile((indexName, false);
+		this->headerPageNum = file->getFirstPageNo();
+		this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
+		myMetaInfo = (IndexMetaInfo*) myMetaPage;
+		this->attributeByteOffset = myMetaInfo->attrByteOffset;
+		this->rootPageNum = myMetaInfo->rootPageNo;
+		this->attributeType = myMetaInfo->attrType;
+		this->bufMgr->unPinPage( this->file, this->headerPageNum, false);
+		// TODO: Do we still need to scan through everything to add
 	}
 
-	//TODO: Need to "dedicate a header page for the B+ Tree file too for storing metadata of
-	// the index".  Are we creating a BPTree of files with index info on the top? Or are
-	// the inner nodes just rid, pointer combos and files are just at the leaf nodes?
 
-	// Scanner to look through files
-	// Directly taken from main.cpp so this should scan through it correctly
-	FileScan fscan(relationName, bufMgrin);
-        try {
-		RecordId scanRid;
-                while(1) {
-                	fscan.scanNext(scanRid);
-                        //Assuming RECORD.i is our key, lets extract the key, which we know is INTEGER and whose byte offset is also know inside the record.
-                        std::string recordStr = fscan.getRecord();
-                        const char *record = recordStr.c_str();
-			// Edited by mike to be int*
-                        int * key = ((int *)(record + offsetof (RECORD, i)));
-                        //std::cout << "Extracted : " << key << std::endl;
-
-			// Added by mike
-			// Call insert on each entry
-			insertEntry(key, scanRid);
-                }
-        }
-        catch(EndOfFileException e) {
-        	//std::cout << "Read all records" << std::endl;
-        }
 }
 
 
