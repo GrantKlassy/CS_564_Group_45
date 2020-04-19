@@ -62,7 +62,33 @@ const void BTreeIndex::startScan(const void* lowValParm,
 				   const void* highValParm,
 				   const Operator highOpParm)
 {
+    //check if scan already in progress and if so, end it
+    //scanExecuting = true
 
+    //if root is leaf:
+	//if root is (low op) than (low val) and (high op) than (high val): 
+	    //bring to buffer pool <--- HELP do i need to do more?? will root have >1 val??
+
+    //else:
+	//while NonLeafNodeInt::level != 1: (this loop gets us to level before leaf)
+	    //read in page to bufmgr <--- HELP do we need to do this??
+	    //pick lowest child that is still (low op) than (low val)
+	    //bring said child to buffer pool
+	    //move curr to child node
+
+	//(now we're one level above child node)
+	//read in page to bufmgr
+        //pick lowest leaf that is still (low op) than (low val) 
+        //bring said leaf to buffer pool
+        //move curr to leaf node
+
+	//do:
+	    //scanNext(nextrid)
+	    //if val of nextrid record is (high op) than (high val):
+		//scan? does this mean also bring to buffer pool? HELP
+	//while val of nextrid record is (high op) than (high val);
+
+	//endScan
 }
 
 // -----------------------------------------------------------------------------
