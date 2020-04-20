@@ -72,6 +72,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 		myMetaInfo->attrByteOffset = this->attrByteOffset;
 		// We again assume insert takes care of this
 		myMetaInfo->rootPageNo = -1;
+		myMetaInfo->rootLeaf = true;
 
 		// Scanner to look through files
 		// Directly taken from main.cpp so this should scan through it correctly
@@ -95,7 +96,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
        		        }
         	}
         	catch(EndOfFileException e) {
-			// FIXME: Right place to unpin header file
+			// FIXME: Right place to unpin header file?
 			bufMgr->unPinPage(this->file, 0, true);
         		//std::cout << "Read all records" << std::endl;
         	}
@@ -108,6 +109,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 		this->attributeByteOffset = myMetaInfo->attrByteOffset;
 		this->rootPageNum = myMetaInfo->rootPageNo;
 		this->attributeType = myMetaInfo->attrType;
+		this->rootLeaf = myMetaInfo->rootLeaf;
 		this->bufMgr->unPinPage( this->file, this->headerPageNum, false);
 	}
 }
@@ -116,9 +118,12 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 // -----------------------------------------------------------------------------
 // BTreeIndex::~BTreeIndex -- destructor
 // -----------------------------------------------------------------------------
-
+// Destructor should be done
 BTreeIndex::~BTreeIndex()
 {
+	this->scanExecuting = false;
+	this->bugMgr->flushFile(this->file);
+	delete this->file;
 }
 
 // -----------------------------------------------------------------------------
@@ -132,7 +137,76 @@ BTreeIndex::~BTreeIndex()
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 const void BTreeIndex::insertEntry(const void *key, const RecordId rid) 
 {
+	// If we don't have a root yet, let's make a root, update info
+	if (this->rootPageNum == -1) {
 
+		RIDKeyPair<int> firstPairIn;
+		int * firstKey;
+		firstKey = (int*) (key);
+		firstPairIn.set(rid, *(firstKey));
+		Page * newNode;
+		PageID newPageNum;
+		bufMgr->allocPage(this->file, newPageNum, newNode);
+
+		// Insert into root at index 1
+		insertLeafHelper(newNode, firstPairIn, 0);
+
+		// Set header info
+		this->rootLeaf = true;
+		this->rootPageNum = newPageNum;	
+
+		// Set meta info
+		Page* myMetaPage;
+	        IndexMetaInfo* myMetaInfo;
+		this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
+		myMetaInfo = (IndexMetaInfo*) myMetaPage;
+		myMetaInfo->rootLeaf = true;
+		myMetaInfo->rootPageNum = newPageNum;
+
+		myMetaInfo->unPinPage(this->file, newPageNum, true);
+		myMetaInfo->unPinPage(this->file, myMetaPage, true);
+		return;
+	}
+	// Else we'll call a recursive helper function on the root
+		
+}
+
+
+
+void BTreeIndex::insertLeafHelper(Page * myNode, RIDKeyPair<int> insertMe, int currNumIndices) {
+
+	LeafNodeInt * myLeaf;
+	myLeaf = (LeafNodeInt *) myNode;
+
+	// Just insert it at front if it's new
+	if (currNumIndices == 0) {
+		myLeaf->keyArray[0] = insertMe.key;
+		myLeaf->ridArray[0] = insertMe.rid;
+		return;
+	}
+
+	// Go through and find place to insert it
+	// TODO: Figure out if we have to split and call it appropriately?
+	int testKey;
+	RecordId testRid;
+	for (int i = 0; i < currNumIndices; i++) {
+		testKey = myLeaf->keyArray[i];
+		// Have we found the right place to insert
+		if (insertMe.key < testKey) {
+			// We gotta shift everything over
+			// TODO: Double check when not late at night
+			for (int j = currNumIndices - 1; j > i - 1; i--) {
+				leafNode->keyArray[j+1] = leafNode->keyArray[j];
+				leafNode->ridArray[j+1] = leafNode->ridArray[j];
+			}
+			leafNode->keyArray[i] = insertMe.key;
+			leafNode->ridArray[i] = insertMe.rid;
+			return;
+		}
+	}
+	// If we make it all the way until the end, jsut put it at end
+	leafNode->keyArray[currNumIndices-1] = insertMe.key;
+	leafNode->ridArray[currNumIndices-1] = insertMe.rid;
 }
 
 // -----------------------------------------------------------------------------
