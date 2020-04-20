@@ -225,7 +225,7 @@ const void BTreeIndex::startScan(const void* lowValParm,
 	throw new BadScanrangeException;
     }
 
-    //check if scan already in progress and if so, end it
+    // check if scan already in progress and if so, end it
     if (this->scanExecuting) {
 	endScan();
     }
@@ -233,15 +233,12 @@ const void BTreeIndex::startScan(const void* lowValParm,
 
     bufMgr->readPage(this->file, rootPageNum, this->currentPageData);
 
-    // mike: There are multiple times we are going to have to traverse the tree so I'm guessing
-    // we'll end up making a helper function to traverse.  In this case we'd end up calling
-    // that helper function with the lower value which would return the leaf node closest
-    // I think how to traverse in the helper function will be more clear once we write the
-    // constructor.
-    //if root is leaf:
     if (this->rootLeaf) {
-	//if root is (low op) than (low val) and (high op) than (high val): 
-	    //bring to buffer pool <--- HELP do i need to do more?? will root have >1 val??
+	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> this->currentPageData;
+	this->nextEntry = lowLeafHelper(currLeaf, lowValParm, lowOpParm);	
+	
+	this->currentPageData = reinterpret_cast<Page*> currLeaf;
+        scanLeafHelper(highValParm, highOpParm);
     }
     else {
 	// mike: I think this is right.  "A leaf page that has been read into the buffer
@@ -250,75 +247,113 @@ const void BTreeIndex::startScan(const void* lowValParm,
 	// like in scanNext we bring it into the buffer pool and pin it.
 
 	NonLeafNodeInt *currNode = reinterpret_cast<NonLeafNodeInt*> this->currentPageData;
-	findLeavesHelper(currNode, nextEntry, lowValParm, lowOpParm);
+	
+	// if the next level from root is the leaf level, call with bool nextLeaf = true, otherwise false
+	if (currNode->level != 1) {
+	    findLeavesHelper(currNode, false, lowValParm, lowOpParm);
+	}
+	else {
+	    findLeavesHelper(currNode, true, lowValParm, lowOpParm);
+	}
+	
+	// we should return with currNode --> first leaf node in range, so cast to leaf struct
 	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> currNode;	
+	this->nextEntry = lowLeafHelper(currLeaf, lowValParm, lowOpParm);
 
-	bool inRange;
-	do {
-	    if ((highOpParm == LT && currLeaf->keyArray[nextEntry] < highValParm) 
-			|| (highOpParm == LTE && currLeaf->keyArray[nextEntry] <= highValParm)) {
-		inRange = true;
-	    	scanNext(currLeaf->ridArray[nextEntry]);
-	    }
-	    else {
-		inRange = false;
-	    }
-	} while (inRange);
+	// recast currLeaf to Page* and store in currentPageData to save as global data
+	this->currentPageData = reinterpret_cast<Page*> currLeaf;
+	scanLeafHelper(highValParm, highOpParm);
 
 	endScan();
     }
-
-    //TODO: throw NoSuchKeyException if there's no key </<= high val
 }
 
-void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, int nextidx, const void* lowVal, const Operator lowOp) {
-    //TODO: Unpin all pages??
-    bool smFound;
-    while (currNode->level != 1) {
-	int curridx = 0;
-	smFound = false;
-	while (!smFound) {
-	    if (curridx >= INTARRAYNONLEAFSIZE) {
-		//reset currNode as right pid
-		bufMgr->readPage(this->file, currNode->pageNoArray[INTARRAYNONLEAFSIZE], currNode);
-		smFound = true;
-	    }
-	    else {
-		if ((lowOp == GT && currNode->keyArray[curridx] <= lowVal) 
-			|| (lowOp == GTE && currNode->keyArray[curridx] < lowVal)) {
-		    //reset currNode as left pid
-		    bufMgr->readPage(this->file, currNode->pageNoArray[curridx], currNode);
-		    smFound = true;
-		}
-		else {
-		    curridx++;
-		}
-	    }
-	}
-    }
-    //now we should be just above the leaf level
+/**
+ * Traverses the tree recursively to find the leaf node that is found to be at the beginning of the range.
+ */
+void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, const void* lowVal, const Operator lowOp) {
     int curridx = 0;
-    smFound = false;
+    bool smFound = false;
     while (!smFound) {
         if (curridx >= INTARRAYNONLEAFSIZE) {
-            //reset currNode as right leaf
-	    bufMgr->readPage(this->file, currNode->pageNoArray[INTARRAYNONLEAFSIZE], currNode);
+            // reset currNode as right pid
+            bufMgr->readPage(this->file, currNode->pageNoArray[INTARRAYNONLEAFSIZE], currNode);
             smFound = true;
-        }   
+        }
         else {
-            if ((lowOp == GT && currNode->keyArray[curridx] <= lowVal) 
-                    || (lowOp == GTE && currNode->keyArray[curridx] < lowVal)) {
-                //reset currNode as left leaf
-		bufMgr->readPage(this->file, currNode->pageNoArray[curridx], currNode);
+            if ((lowOp == GT && currNode->keyArray[curridx] > lowVal)
+                    || (lowOp == GTE && currNode->keyArray[curridx] >= lowVal)) {
+                // reset currNode as left pid
+                bufMgr->readPage(this->file, currNode->pageNoArray[curridx], currNode);
                 smFound = true;
             }
             else {
+		// if the current key is still <=/< the low val...
                 curridx++;
             }
         }
     }
-    //TODO: iterate through leaf node to set nextEntry appropriately, throw exception if
-    // there doesn't exist element >/>= low val
+    if (nextLeaf) {
+	return;
+    }
+    else if (currNode->level != 1) {
+	findLeavesHelper(currNode, false, lowVal, lowOp);
+    }
+    else {
+	// we should be at the level above the leaves
+	findLeavesHelper(currNode, true, lowVal, lowOp);
+    }
+}
+
+/**
+ * Traverses the leaf node found to be at the beginning of the range, finds the specific key that is the
+ * smallest but >/>= lowVal, and sets nextEntry to its index and returns nextEntry.
+ * 
+ * Throws new NoSuchKeyFoundException in the case where we couldn't find and value >/>= lowVal
+ */
+int BTreeIndex::lowLeafHelper(LeafNodeInt * currLeaf, const void* lowVal, const Operator lowOp) {
+    int startidx = -1;
+    for (int i = INTARRAYLEAFSIZE-1; i >= 0; i--) {
+	if ((lowOp == GT && currLeaf->keyArray[i] > lowVal) 
+		|| (lowOp == GTE && currLeaf->keyArray[i] >= lowVal)) {
+	    startidx = i;
+	}
+    }
+    if (startidx == -1) {
+	throw new NoSuchKeyFoundException;
+    }
+    else {
+	return startidx;
+    } 
+}
+
+/**
+ * Traverses the leaf node from nextEntry until it finds the specific key that is the
+ * largest but </<= highVal, and scans each leaf that satisfies the range using scanNext.
+ *
+ * Throws new NoSuchKeyFoundException in the case where we couldn't find and value </<= highVal
+ */
+void BTreeIndex::scanLeafHelper(const void* highVal, const Operator highOp) {
+    // check to make sure that at least one key is within range
+    LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> this->currentPageData;
+    if ((highOp == LT && currLeaf->keyArray[this->nextEntry] >= highVal)
+            || (highOp == LTE && currLeaf->keyArray[this->nextEntry] > highVal)) {
+	throw new NoSuchKeyFoundException;
+    }
+
+    bool inRange;
+    do {
+	//cast everytime to ensure we use the right node if scanNext moves onto the next one
+	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> this->currentPageData;
+        if ((highOp == LT && currLeaf->keyArray[this->nextEntry] < highVal) 
+                || (highOp == LTE && currLeaf->keyArray[this->nextEntry] <= highVal)) {
+            inRange = true;
+            scanNext(currLeaf->ridArray[this->nextEntry]);
+        }
+        else {
+            inRange = false;
+        }
+    } while (inRange);
 }
 
 // -----------------------------------------------------------------------------
