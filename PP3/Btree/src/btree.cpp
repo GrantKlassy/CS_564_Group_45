@@ -36,21 +36,42 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 	//Taken from spec: How to get name of index file
 	std::ostringstream idxStr;
 	idxStr << relationName << '.' << attrByteOffset;
-	std::string indexName = idxStr.str(); // name of index file
-
-	Page* myMetaPage;
-	IndexMetaInfo* myMetaInfo;
+	std::string outIndexName = idxStr.str(); // name of index file
 
 	this->bufMgr = befMgrIn;
-	this->currentPageNum = 0;
 	this->scanExecuting = false;
 	// Should always be integer
 	this->attributeType = attrType;
+	this->nodeOccupancy = INTARRAYNONLEAFSIZE;
+	this->leafOccupancy = INTARRAYLEAFSIZE;
+	this->attrByteOffset = attrByteOffset;
+	// At the start our root is a leaf
+	this->rootLeaf = true;
 
+	// Things we have yet to set
+	// rootPageNum = -1 says we haven't started setting up stuff yet
+	this->rootPageNum = -1;
+	this->currentPageNum = 0;
+	this->headerPageNum = 0;
+	this->file = NULL;
+	Page* myMetaPage;
+	IndexMetaInfo* myMetaInfo;
+	
 
 	// Find out if the file exists
-	if (!(File::exists(indexName))) {
-		this->file = new BlobFile(indexName, true);
+	if (!(File::exists(outIndexName))) {
+		this->file = new BlobFile(outIndexName, true);
+
+		// Before looking through and adding things, lets alloc metadata at page 0
+		bufMgr->allocPage(this->file, 0, myMetaPage);
+		myMetaInfo = (IndexMetaInfo*)(myMetaPage);
+		// Since we already set headerPageNum to 0 by default, this is redundant
+		// this->headerPageNum = 0;
+		strcpy(myMetaInfo->relationName, relationName.c_str());
+		myMetaInfo->attrType = this->attributeType;
+		myMetaInfo->attrByteOffset = this->attrByteOffset;
+		// We again assume insert takes care of this
+		myMetaInfo->rootPageNo = -1;
 
 		// Scanner to look through files
 		// Directly taken from main.cpp so this should scan through it correctly
@@ -68,20 +89,19 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 
 				// Added by mike
 				// Call insert on each entry?
-				// FIXME: Is this right
+				// We assume insert entry will handle root node setting
+				// Assume insert allocs additional necessary pages
 				insertEntry(key, scanRid);
        		        }
         	}
         	catch(EndOfFileException e) {
+			// FIXME: Right place to unpin header file
+			bufMgr->unPinPage(this->file, 0, true);
         		//std::cout << "Read all records" << std::endl;
         	}
-
-		//TODO: Still have to update meta data
-
 	} else {
 		// open file
-		// This is "“raw” file, i.e., it has no page structure on top of it"
-		this->file = new BlobFile((indexName, false);
+		this->file = new BlobFile((outIndexName, false);
 		this->headerPageNum = file->getFirstPageNo();
 		this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
 		myMetaInfo = (IndexMetaInfo*) myMetaPage;
@@ -89,10 +109,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 		this->rootPageNum = myMetaInfo->rootPageNo;
 		this->attributeType = myMetaInfo->attrType;
 		this->bufMgr->unPinPage( this->file, this->headerPageNum, false);
-		// TODO: Do we still need to scan through everything to add
 	}
-
-
 }
 
 
@@ -108,6 +125,11 @@ BTreeIndex::~BTreeIndex()
 // BTreeIndex::insertEntry
 // -----------------------------------------------------------------------------
 
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!! IMPORTANT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// If this->rootPageNum = -1 it means we have just started setting up 
+// nodes.  If this is the case, the entry we are setting needs to become the root
+// and you need to update this->rootPageNum and any other relevant root info
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 const void BTreeIndex::insertEntry(const void *key, const RecordId rid) 
 {
 
