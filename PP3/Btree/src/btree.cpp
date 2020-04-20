@@ -122,8 +122,18 @@ const void BTreeIndex::startScan(const void* lowValParm,
 				   const void* highValParm,
 				   const Operator highOpParm)
 {
+    if ((lowOpParm != GT && lowOpParm != GTE) || (highOpParm != LT && highOpParm != LTE)) {
+	throw new BadOpcodesException;
+    }
+    if (lowValParm > highValParm) {
+	throw new BadScanrangeException;
+    }
+
     //check if scan already in progress and if so, end it
-    //scanExecuting = true
+    if (this->scanExecuting) {
+	endScan();
+    }
+    this->scanExecuting = true;
 
     // mike: There are multiple times we are going to have to traverse the tree so I'm guessing
     // we'll end up making a helper function to traverse.  In this case we'd end up calling
@@ -131,10 +141,11 @@ const void BTreeIndex::startScan(const void* lowValParm,
     // I think how to traverse in the helper function will be more clear once we write the
     // constructor.
     //if root is leaf:
+    if (this->rootLeaf) {
 	//if root is (low op) than (low val) and (high op) than (high val): 
 	    //bring to buffer pool <--- HELP do i need to do more?? will root have >1 val??
-
-    //else:
+    }
+    else {
 	//while NonLeafNodeInt::level != 1: (this loop gets us to level before leaf)
 	    //read in page to bufmgr <--- HELP do we need to do this??
 	    //pick lowest child that is still (low op) than (low val)
@@ -150,13 +161,26 @@ const void BTreeIndex::startScan(const void* lowValParm,
         // pool for the purpose of scanning, should not be unpinned from buffer pool unless
 	// all records from it are read or the scan has reached its end".  That makes it sound
 	// like in scanNext we bring it into the buffer pool and pin it.
-	//do:
-	    //scanNext(nextrid)
-	    //if val of nextrid record is (high op) than (high val):
-		//scan? does this mean also bring to buffer pool? HELP
-	//while val of nextrid record is (high op) than (high val);
 
-	//endScan
+	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> this->currentPageData;
+	//nextEntry = ??
+	
+	bool inRange;
+	do {
+	    if ((highOpParm == LT && currLeaf->keyArray[nextEntry] < highValParm) 
+			|| (highOpParm == LTE && currLeaf->keyArray[nextEntry] <= highValParm)) {
+		inRange = true;
+	    	scanNext(currLeaf->ridArray[nextEntry]);
+	    }
+	    else {
+		inRange = false;
+	    }
+	} while (inRange);
+
+	endScan();
+    }
+
+    //TODO: throw NoSuchKeyException if there's no key in the range
 }
 
 // -----------------------------------------------------------------------------
