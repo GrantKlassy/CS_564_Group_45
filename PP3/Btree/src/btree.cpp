@@ -263,9 +263,8 @@ const void BTreeIndex::startScan(const void* lowValParm,
 	// recast currLeaf to Page* and store in currentPageData to save as global data
 	this->currentPageData = reinterpret_cast<Page*> currLeaf;
 	scanLeafHelper(highValParm, highOpParm);
-
-	endScan();
     }
+    endScan();
 }
 
 /**
