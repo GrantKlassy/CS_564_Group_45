@@ -231,6 +231,8 @@ const void BTreeIndex::startScan(const void* lowValParm,
     }
     this->scanExecuting = true;
 
+    bufMgr->readPage(this->file, rootPageNum, this->currentPageData);
+
     // mike: There are multiple times we are going to have to traverse the tree so I'm guessing
     // we'll end up making a helper function to traverse.  In this case we'd end up calling
     // that helper function with the lower value which would return the leaf node closest
@@ -242,25 +244,15 @@ const void BTreeIndex::startScan(const void* lowValParm,
 	    //bring to buffer pool <--- HELP do i need to do more?? will root have >1 val??
     }
     else {
-	//while NonLeafNodeInt::level != 1: (this loop gets us to level before leaf)
-	    //read in page to bufmgr <--- HELP do we need to do this??
-	    //pick lowest child that is still (low op) than (low val)
-	    //bring said child to buffer pool
-	    //move curr to child node
-
-	//(now we're one level above child node)
-	//read in page to bufmgr
-        //pick lowest leaf that is still (low op) than (low val) 
-        //bring said leaf to buffer pool
-        //move curr to leaf node
 	// mike: I think this is right.  "A leaf page that has been read into the buffer
         // pool for the purpose of scanning, should not be unpinned from buffer pool unless
 	// all records from it are read or the scan has reached its end".  That makes it sound
 	// like in scanNext we bring it into the buffer pool and pin it.
 
-	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> this->currentPageData;
-	//nextEntry = ??
-	
+	NonLeafNodeInt *currNode = reinterpret_cast<NonLeafNodeInt*> this->currentPageData;
+	findLeavesHelper(currNode, nextEntry, lowValParm, lowOpParm);
+	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> currNode;	
+
 	bool inRange;
 	do {
 	    if ((highOpParm == LT && currLeaf->keyArray[nextEntry] < highValParm) 
@@ -276,7 +268,57 @@ const void BTreeIndex::startScan(const void* lowValParm,
 	endScan();
     }
 
-    //TODO: throw NoSuchKeyException if there's no key in the range
+    //TODO: throw NoSuchKeyException if there's no key </<= high val
+}
+
+void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, int nextidx, const void* lowVal, const Operator lowOp) {
+    //TODO: Unpin all pages??
+    bool smFound;
+    while (currNode->level != 1) {
+	int curridx = 0;
+	smFound = false;
+	while (!smFound) {
+	    if (curridx >= INTARRAYNONLEAFSIZE) {
+		//reset currNode as right pid
+		bufMgr->readPage(this->file, currNode->pageNoArray[INTARRAYNONLEAFSIZE], currNode);
+		smFound = true;
+	    }
+	    else {
+		if ((lowOp == GT && currNode->keyArray[curridx] <= lowVal) 
+			|| (lowOp == GTE && currNode->keyArray[curridx] < lowVal)) {
+		    //reset currNode as left pid
+		    bufMgr->readPage(this->file, currNode->pageNoArray[curridx], currNode);
+		    smFound = true;
+		}
+		else {
+		    curridx++;
+		}
+	    }
+	}
+    }
+    //now we should be just above the leaf level
+    int curridx = 0;
+    smFound = false;
+    while (!smFound) {
+        if (curridx >= INTARRAYNONLEAFSIZE) {
+            //reset currNode as right leaf
+	    bufMgr->readPage(this->file, currNode->pageNoArray[INTARRAYNONLEAFSIZE], currNode);
+            smFound = true;
+        }   
+        else {
+            if ((lowOp == GT && currNode->keyArray[curridx] <= lowVal) 
+                    || (lowOp == GTE && currNode->keyArray[curridx] < lowVal)) {
+                //reset currNode as left leaf
+		bufMgr->readPage(this->file, currNode->pageNoArray[curridx], currNode);
+                smFound = true;
+            }
+            else {
+                curridx++;
+            }
+        }
+    }
+    //TODO: iterate through leaf node to set nextEntry appropriately, throw exception if
+    // there doesn't exist element >/>= low val
 }
 
 // -----------------------------------------------------------------------------
@@ -285,7 +327,8 @@ const void BTreeIndex::startScan(const void* lowValParm,
 
 const void BTreeIndex::scanNext(RecordId& outRid) 
 {
-
+    //note to whoever does this method: make sure you increment nextEntry appropriately
+    //because I am not doing that in startScan
 }
 
 // -----------------------------------------------------------------------------
