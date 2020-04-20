@@ -137,19 +137,21 @@ BTreeIndex::~BTreeIndex()
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 const void BTreeIndex::insertEntry(const void *key, const RecordId rid) 
 {
+		int * keyToInsert;
+		keyToInsert = (int*) (key);
+		RIDKeyPair<int> ridKeyCombo;
+		ridKeyCombo.set(rid, *(keyToInsert));
+
+
 	// If we don't have a root yet, let's make a root, update info
 	if (this->rootPageNum == -1) {
 
-		RIDKeyPair<int> firstPairIn;
-		int * firstKey;
-		firstKey = (int*) (key);
-		firstPairIn.set(rid, *(firstKey));
 		Page * newNode;
 		PageID newPageNum;
 		bufMgr->allocPage(this->file, newPageNum, newNode);
 
 		// Insert into root at index 1
-		insertLeafHelper(newNode, firstPairIn, 0);
+		insertLeafHelper(newNode, ridKeyCombo, 0);
 
 		// Set header info
 		this->rootLeaf = true;
@@ -168,8 +170,105 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		return;
 	}
 	// Else we'll call a recursive helper function on the root
-		
+	
+	// Path to remember how to get back up
+	// Holds levels of previous things
+	std::stack<int> path;
+
+	// Call to recursive helper
+	insertHelper(this->rootPageNum, ridKeyCombo, path);
+	
 }
+
+void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> &path) {
+	
+
+	// initialized values
+	int myKey = ridKey.key;
+	RecordId myRid = ridKey.rid;
+	// Arguments we have
+	// PageId myPage
+	// std::stack<int> path
+
+	// TBD values
+	bool imRoot = false;
+	Page * myNode;
+	// If we ever need to check if we are a leaf or not we can check which one of these is NULL
+	NonLeafNodeInt * myNonLeaf = NULL;
+	LeafNodeInt * myLeaf = NULL;
+
+	// myNode now holds the info on this page
+	bufMgr->readPage(this->file, myPage, myNode);
+
+	// If both checkLeaf1 and 2 are true, we are a leaf
+	// Not sure if I'll get NULL pointer if I call top on an empty one so called this way
+	bool checkLeaf1 = (path.size() != 0);
+	bool checkLeaf2 = false;
+	if (checkLeaf1) {
+		checkLeaf2 = (path.top() == 1);
+	}
+
+	////////////////////////////////////////////////////////////////////////////////////
+	//////////////////////////////// LEAF SECTION //////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////
+	if (checkLeaf1 && checkLeaf2) {
+		// Our parent was right before a leaf, we must be a leaf
+		myLeaf = (LeafNodeInt *) myNode;
+		//TODO: Leaf stuff
+
+	} 
+	////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////// NON-LEAF SECTION ///////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////
+	else {
+		myNonLeaf = (NonLeafNodeInt *) myNode;
+		// Record we were just on this level
+		path.push(myNonLeaf->level);
+		// We want to recurse but first we need to know where to go
+		
+
+
+
+// TODO: @Carley Use this method in findLeavesHelper to determine maxIndex you can go to safely
+// The number returned is the number of entries in the non leaf node.  So the last valid index
+// would be the number returned - 1.  This can be used for leaves and non-leaves depending on
+// isLeaf flag
+int BTreeIndex::numEntries(Page * myNode, int myKey, bool isLeaf) {
+	
+	// This should be changed in next line
+	int max = -1;
+	// If the node isLeaf = INTARRAYLEAFSIZE, else INTARRAYNONLEAFSIZE
+	// We have an extra non leaf node pointer
+	max = isLeaf ? INTARRAYLEAFSIZE : INTARRAYNONLEAFSIZE + 1;
+
+	// For Leaves
+	RecordId myRid;
+
+	// For Non-Leaves
+	PageId myPid;
+
+	for (int i = 0; i < max; i++) {
+		if (isLeaf) {
+			myRid = ( (leafNodeInt *) myNode )->ridArray[i];
+			// FIXME: Will this error out when I hit end
+			// FIXME: Assumes when we go too far things are zeroed out
+			// We know page_number 0 is metadata so that should be safe
+			if (myRid.page_number == 0) {
+				return i;
+			}
+		}
+		else {
+			myPid = ( (NonLeafNodeInt *) myNode )->pageNoArray[i];
+			// FIXME: Assume zeroed out again
+			if (myPid == 0) {
+				return i;
+			}
+		}	
+	}
+	return max;
+}
+
+
 
 
 
