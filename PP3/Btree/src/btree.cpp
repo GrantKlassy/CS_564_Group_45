@@ -180,7 +180,8 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	
 }
 
-void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> &path) {
+// Return value is the page, key pair that needs to be added if splitting occured
+PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> &path) {
 	
 	// initialized values
 	int myKey = ridKey.key;
@@ -197,7 +198,7 @@ void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> 
 	LeafNodeInt * myLeaf = NULL;
 
 	// myNode now holds the info on this page
-	// TODO: Unpin Me
+	// TODO: Unpin Me at end of every possible scenario
 	bufMgr->readPage(this->file, myPage, myNode);
 
 	// If both checkLeaf1 and 2 are true, we are a leaf
@@ -215,11 +216,10 @@ void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> 
 		// Our parent was right before a leaf, we must be a leaf
 		myLeaf = (LeafNodeInt *) myNode;
 
-		int numEntries = getNumEntries((Page *) myLeaf, myKey, true);
+		int numEntries = getNumEntries((Page *) myLeaf, true);
 
-		// Condition that we need to split
+		///////////////////// SPLIT LEAF ////////////////////////////////////////
 		if (numEntries == INTARRAYLEAFSIZE - 1) {
-			//TODO: Split
 			PageId newPageNum;
 			Page * newPage;
 			LeafNodeInt* newLeaf;
@@ -232,7 +232,7 @@ void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> 
 			// Improve readability
 			LeafNodeInt* leftLeaf;
 			LeafNodeInt* rightLeaf;
-			// Note: If odd size, right leaf is bigger
+			// NOTE: Old leaf has to be on left because things still point to it
 			leftLeaf = myLeaf;
 			rightLeaf = newLeaf;
 
@@ -242,21 +242,33 @@ void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> 
 			rightLeaf->rightSibPageNo = tempPn;
 			leftLeaf->rightSibPageNo = newPageNum;
 
-			key returnKey = rightLeaf->keyArray[0];
-			// TODO: Need to propagate this upwards by returning or new param?
-			// TODO: Unpin
-			return;
-		} else {
+			// Get all of the stuff we need to return
+			// The middle key we are going to use in non-leaf node
+			key returnKey = rightLeaf->keyArray[0]; 
+			// The pageNo of the rightLeaf node we just made
+			PageId returnPageNum = newPageNum;
+			PageKeyPair<int> returnPair;
+			returnPair.key = returnKey;
+			returnPair.pageNo = newPageNum;
+
+			// TODO: Unpin newPageNum, whatever page myNode is
+			
+			return returnPair;
+		} 
+		////////////////// DONT SPLIT LEAF /////////////////////////////////////////
+		else {
 			insertLeafHelper(myLeaf, myKey, numEntries);
-			// TODO: Someway to tell we havent split?
-			// TODO: unpin here?
-			return;
+
+			// TODO: unpin here
+			
+			return NULL;
 		}
 	} 
 	////////////////////////////////////////////////////////////////////////////////////
 	/////////////////////////////// NON-LEAF SECTION ///////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////
 	else {
+		////////////// HANDLE FINDING NEXT PAGE IN TREE ////////////////////////////
 		myNonLeaf = (NonLeafNodeInt *) myNode;
 		// Record we were just on this level
 		path.push(myNonLeaf->level);
@@ -264,7 +276,7 @@ void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> 
 		PageId nextPage = -1;
 
 		// how many entries are in current non-leaf node
-		int numEntries = getNumEntries((Page *) myNonLeaf, myKey, false);
+		int numEntries = getNumEntries((Page *) myNonLeaf, false);
 
 		for (int i = 0; i < numEntries; i++) {
 			// When we hit first time it's under key array, we have pageNo and break
@@ -278,10 +290,36 @@ void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> 
 			nextPage = myNonLeaf->pageNoArray[numEntries];
 		}
 		
-		// recurse down tree
-		insertHelper(nextPage, ridKey, path);
+		//////////////////////// RECURSE DOWN //////////////////////////////////////
+		PageKeyPair<int> splitInfo;
+		splitInfo = insertHelper(nextPage, ridKey, path);
 
-		// TODO: Handle splitting on way back up
+		/////////////////////// ON WAY BACK UP /////////////////////////////////////
+		
+		// We are one level higher
+		path.pop();
+
+		/////////////////// NO SPLIT OCCURED ///////////////////////////////////////
+		if (splitInfo == NULL) {
+			// TODO: unpin
+			return NULL;
+		}
+
+		///////////////////// SPLIT OCCURED ////////////////////////////////////////
+		
+		// We already have this number and it shouldn't have changed from above
+		// int numEntries = getNumEntries( myNode, false);
+		// We can hold one more spot in non-leaves than the size
+		//////////////////// PROPAGATE SPLIT UP ////////////////////////////////////
+		if (numEntries == INTARRAYNONLEAFSIZE) {
+			// TODO: SPLIT NON-LEAF
+		}
+		//////////////////// NO NEED TO PROPAGATE SPLIT ////////////////////////////
+		else {
+
+		
+
+
 	}
 }
 
@@ -383,7 +421,7 @@ void BTreeIndex::splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf,
 // The number returned is the number of entries in the non leaf node.  So the last valid index
 // would be the number returned - 1.  This can be used for leaves and non-leaves depending on
 // isLeaf flag
-int BTreeIndex::getNumEntries(Page * myNode, int myKey, bool isLeaf) {
+int BTreeIndex::getNumEntries(Page * myNode, bool isLeaf) {
 	
 	// This should be changed in next line
 	int max = -1;
@@ -433,7 +471,6 @@ void BTreeIndex::insertLeafHelper(LeafNodeInt * myLeaf, RIDKeyPair<int> insertMe
 
 	// Go through and find place to insert it
 	int testKey;
-	RecordId testRid;
 	for (int i = 0; i < numEntries; i++) {
 		testKey = myLeaf->keyArray[i];
 		// Have we found the right place to insert
@@ -441,18 +478,53 @@ void BTreeIndex::insertLeafHelper(LeafNodeInt * myLeaf, RIDKeyPair<int> insertMe
 			// We gotta shift everything over
 			// THIS WILL SEGFAULT IF CALLED ON FULL ARRAY
 			// From last entry -> where we are, shift, data up 1
-			for (int j = numEntries - 1; j > i - 1; i--) {
-				leafNode->keyArray[j+1] = leafNode->keyArray[j];
-				leafNode->ridArray[j+1] = leafNode->ridArray[j];
+			for (int j = numEntries - 1; j > i - 1; j--) {
+				myLeaf->keyArray[j+1] = myLeaf->keyArray[j];
+				myLeaf->ridArray[j+1] = myLeaf->ridArray[j];
 			}
-			leafNode->keyArray[i] = insertMe.key;
-			leafNode->ridArray[i] = insertMe.rid;
+			myLeaf->keyArray[i] = insertMe.key;
+			myLeaf->ridArray[i] = insertMe.rid;
 			return;
 		}
 	}
 	// If we make it all the way until the end, just put it at end
-	leafNode->keyArray[numEntries] = insertMe.key;
-	leafNode->ridArray[numEntries] = insertMe.rid;
+	myLeaf->keyArray[numEntries] = insertMe.key;
+	myLeaf->ridArray[numEntries] = insertMe.rid;
+}
+
+// This function is very similar to the leaf-version except we need to place the page to 
+// the right of our key.  Also, pageNo arrays are one larger than key arrays
+// TODO: Check indices are correct in this version
+void BTreeIndex::insertNonLeafHelper(NonLeafNodeInt * myNonLeaf, PageKeyPair<int> insertMe, int numEntries) {
+
+	// Just insert it at front if it's new
+	if (numEntries == 0) {
+		myNonLeaf->keyArray[0] = insertMe.key;
+		myNonLeaf->pageNoArray[1] = insertMe.pageNo;
+		return;
+	}
+
+	// Go through and find place to insert it
+	int testKey;
+	for (int i = 0; i < numEntries; i++) {
+		testKey = myNonLeaf->keyArray[i];
+		// Have we found the right place to insert
+		if (insertMe.key < testKey) {
+			// We gotta shift everything over
+			// THIS WILL SEGFAULT IF CALLED ON FULL ARRAY
+			// From last entry -> where we are, shift, data up 1
+			for (int j = numEntries - 1; j > i - 1; j--) {
+				myLeaf->keyArray[j+1] = myLeaf->keyArray[j];
+				myLeaf->pageNoArray[j+2] = myLeaf->pageNoArray[j+1];
+			}
+			myLeaf->keyArray[i] = insertMe.key;
+			myLeaf->pageNoArray[i+1] = insertMe.pageNo;
+			return;
+		}
+	}
+	// If we make it all the way until the end, just put it at end
+	myLeaf->keyArray[numEntries] = insertMe.key;
+	myLeaf->pageNoArray[numEntries+1] = insertMe.pageNo;
 }
 
 // -----------------------------------------------------------------------------
