@@ -227,7 +227,7 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 			bufMgr->allocPage(this->file, newPageNum, newPage);
 			newLeaf = (LeafNodeInt*) newLeaf;
 
-			splitLeafAndInsert(myLeaf, newLeaf);
+			splitLeafAndInsert(myLeaf, newLeaf, ridKey, numEntries);
 
 			// Improve readability
 			LeafNodeInt* leftLeaf;
@@ -312,11 +312,51 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 		// We can hold one more spot in non-leaves than the size
 		//////////////////// PROPAGATE SPLIT UP ////////////////////////////////////
 		if (numEntries == INTARRAYNONLEAFSIZE) {
-			// TODO: SPLIT NON-LEAF
+
+			PageId newPageNum;
+			Page * newPage;
+			NonLeafNodeInt* newNonLeaf;
+			//TODO: Unpin
+			bufMgr->allocPage(this->file, newPageNum, newPage);
+			newNonLeaf = (NonLeafNodeInt*) newPage;
+
+			Key rootKey = splitNonLeafAndInsert(myNonLeaf, newNonLeaf, splitInfo, numEntries);
+
+			// TODO: What if it's root
+			if (path.size() == 0) {
+				// We need to make new root node
+
+				PageId newPageNo;
+				Page * newRootPage;
+				bufMgr->allocPage( this->file, newPageNo, newRootPage);
+				NonLeafNodeInt * newRoot = (NonLeafNodeInt*) newRootPage;
+				for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
+					newRoot->keyArray[i] = 0;
+					newRoot->pageNoArray[i] = 0;
+				}
+				newRoot->level = myNonLeaf->level + 1;
+				newRoot->keyArray[0] = rootKey;
+				// TODO: double check
+				newRoot->pageNoArray[0] = myPage;
+				newRoot->pageNoArray[1] = newPageNum;
+
+				this->rootPageNum = newPageNo;
+				
+				//TODO: Read and update meta page
+
+				// TODO: Unpin
+
+			}
+
+			// TODO: Unpin
+
 		}
 		//////////////////// NO NEED TO PROPAGATE SPLIT ////////////////////////////
 		else {
-
+			insertNonLeafHelper( myNonLeaf, splitInfo, numEntries);
+			//TODO: Unpin
+			return NULL;
+		}
 		
 
 
@@ -326,7 +366,115 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 // This function splits a leaf.  If uneven, left side ends up bigger
 // left side -> myLeaf
 // right side -> newLeaf
-void BTreeIndex::splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf, RIDKeyPair<int> insertMe) {
+// TODO: Fix to return key
+Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt * newNonLeaf, PageKeyPair<int> insertMe, int numEntries) {
+
+	// To make things more readable let's essentially rename some things
+	NonLeafNodeInt * left;
+	NonLeafNodeInt * right;
+
+	// We are going to put all of the left stuff in myLeaf and right stuff in newLeaf
+	left = myNonLeaf;
+	right = newNonLeaf;
+
+	// We are going to need to NULL out some things
+	PageId nullPage = NULL;
+
+	Key middleKey = myNonLeaf->keyArray[nodeOccupancy/2];
+
+	/*
+	// grabbed
+	// Go through and find place to insert it
+	int testKey;
+	int indexToInsert = 0;
+	bool broke = false;
+	for (int i = 0; i < numEntries; i++, indexToInsert++) {
+		testKey = myNonLeaf->keyArray[i];
+		// Have we found the right place to insert
+		if (insertMe.key < testKey) {
+			broke = true;
+			break;
+		}
+	}
+	// Case that it should be at last entry
+	if (!broke) {
+		indexToInsert = numEntries - 1;
+	}
+	// Now indexToInsert should be where we want it to
+
+	// If we have an size = 3, this means halfway will be index 1
+	// If we have size 2, this means halfway will be index 2
+	int halfway = ;
+
+	// False means insert right side
+	// True means insert left side
+	bool insertLeftSide = NULL;
+	// TODO: Double check when not late at night
+	// FIXME: Maybe just always split in same spot?
+	// If odd, LEAFSIZE/2 is middle index, 
+	if (INTARRAYLEAFSIZE % 2 == 1) {
+		// Be mindful so splitting splits evenly depending on where new node will be
+		if (indexToInsert <= (INTARRAYLEAFSIZE / 2) ) {
+			insertLeftSide = true;
+			halfway = INTARRAYLEAFSIZE / 2;
+		} else {
+			insertLeftSide = false;
+			halfway = (INTARRAYLEAFSIZE / 2) + 1;
+		}
+	} else {
+		if (indexToInsert <= (INTARRAYLEAFSIZE / 2) ) {
+			insertLeftSide = true;
+		} else {
+			insertLeftSide = false;
+		}
+		halfway = (INTARRAYLEAFSIZE / 2);
+	}
+	*/
+
+	// FIXME: simplify things for non-leaves?
+	int halfway = INTARRAYNONLEAFSIZE / 2 + 1;
+
+	// Iterate indextoplace as we copy over right half
+	int indexToPlace = 0;
+	for (int i = halfway; i < INTARRAYLEAFSIZE; i++, indexToPlace++) {
+		// Copy them over
+		right->keyArray[indexToPlace] = left->keyArray[i];
+		right->ridArray[indexToPlace] = left->pageNoArray[i];
+
+		// Clear left out
+		left->keyArray[i] = 0;
+		left->pageNoArray[i] = NULL;
+	}
+	// Clear back half of right
+	for (int i = indexToPlace; i < INTARRAYLEAFSIZE; i++) {
+		right->keyArray[i] = 0;
+		right->pageNoArray[i] = NULL;
+	}
+
+	// FIXME: Does this simplerway work?
+	bool insertLeftSide = NULL;
+	if ( insertMe.key < middleKey) {
+		insertLeftSide = true;
+	} else {
+		insertLeftSide = false;
+	}
+
+	// Insert left or right depending on what we determined above
+	if (insertLeftSide) {
+		int numLeft = ((Page *) left, insertMe.key, false);
+		insertNonLeafHelper(left, insertMe, numEntries);
+	} else {
+		int numRight = ((Page *) right, insertMe.key, false);
+		insertNonLeafHelper(right, insertMe, numEntries);
+	}
+	return middleKey;
+}
+
+// This function splits a leaf.  If uneven, left side ends up bigger
+// left side -> myLeaf
+// right side -> newLeaf
+// FIXME: Fix to return key?
+void BTreeIndex::splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf, RIDKeyPair<int> insertMe, int numEntries) {
 
 	// To make things more readable let's essentially rename some things
 	LeafNodeInt * leftLeaf;
@@ -344,7 +492,6 @@ void BTreeIndex::splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf,
 	// grabbed
 	// Go through and find place to insert it
 	int testKey;
-	RecordId testRid;
 	int indexToInsert = 0;
 	bool broke = false;
 	for (int i = 0; i < numEntries; i++, indexToInsert++) {
@@ -369,6 +516,7 @@ void BTreeIndex::splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf,
 	bool insertLeftSide = NULL;
 
 	// TODO: Double check when not late at night
+	// FIXME: Maybe just always split in same spot?
 	// If odd, LEAFSIZE/2 is middle index, 
 	if (INTARRAYLEAFSIZE % 2 == 1) {
 		// Be mindful so splitting splits evenly depending on where new node will be
@@ -408,11 +556,11 @@ void BTreeIndex::splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf,
 
 	// Insert left or right depending on what we determined above
 	if (insertLeftSide) {
-		int numEntries = ((Page *) leftLeaf, insertMe.key, true);
-		insertLeafHelper(leftLeaf, insertMe, numEntries);
+		int numLeft = getNumEntries((Page *) leftLeaf, insertMe.key, true);
+		insertLeafHelper(leftLeaf, insertMe, numLeft);
 	} else {
-		int numEntries = ((Page *) rightLeaf, insertMe.key, true);
-		insertLeafHelper(rightLeaf, insertMe, numEntries);
+		int numRight = getNumEntries((Page *) rightLeaf, insertMe.key, true);
+		insertLeafHelper(rightLeaf, insertMe, numLeft);
 	}
 
 }
