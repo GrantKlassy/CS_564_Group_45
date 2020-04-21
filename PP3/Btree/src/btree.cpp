@@ -220,10 +220,36 @@ void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> 
 		// Condition that we need to split
 		if (numEntries == INTARRAYLEAFSIZE - 1) {
 			//TODO: Split
+			PageId newPageNum;
+			Page * newPage;
+			LeafNodeInt* newLeaf;
+			//TODO: Unpin
+			bufMgr->allocPage(this->file, newPageNum, newPage);
+			newLeaf = (LeafNodeInt*) newLeaf;
+
+			splitLeafAndInsert(myLeaf, newLeaf);
+
+			// Improve readability
+			LeafNodeInt* leftLeaf;
+			LeafNodeInt* rightLeaf;
+			// Note: If odd size, right leaf is bigger
+			leftLeaf = myLeaf;
+			rightLeaf = newLeaf;
+
+			// Handle sibling pages
+			PageId tempPn;
+			tempPn = leftLeaf->rightSibPageNo;
+			rightLeaf->rightSibPageNo = tempPn;
+			leftLeaf->rightSibPageNo = newPageNum;
+
+			key returnKey = rightLeaf->keyArray[0];
+			// TODO: Need to propagate this upwards by returning or new param?
+			// TODO: Unpin
+			return;
 		} else {
 			insertLeafHelper(myLeaf, myKey, numEntries);
 			// TODO: Someway to tell we havent split?
-			// TODO: unpin here
+			// TODO: unpin here?
 			return;
 		}
 	} 
@@ -257,6 +283,100 @@ void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> 
 
 		// TODO: Handle splitting on way back up
 	}
+}
+
+// This function splits a leaf.  If uneven, left side ends up bigger
+// left side -> myLeaf
+// right side -> newLeaf
+void BTreeIndex::splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf, RIDKeyPair<int> insertMe) {
+
+	// To make things more readable let's essentially rename some things
+	LeafNodeInt * leftLeaf;
+	LeafNodeInt * rightLeaf;
+
+	// We are going to put all of the left stuff in myLeaf and right stuff in newLeaf
+	leftLeaf = myLeaf;
+	rightLeaf = newLeaf;
+
+	// We are going to need to NULL out some things
+	RecordId nullRecord;
+	nullRecord.page_number = 0;
+
+
+	// grabbed
+	// Go through and find place to insert it
+	int testKey;
+	RecordId testRid;
+	int indexToInsert = 0;
+	bool broke = false;
+	for (int i = 0; i < numEntries; i++, indexToInsert++) {
+		testKey = myLeaf->keyArray[i];
+		// Have we found the right place to insert
+		if (insertMe.key < testKey) {
+			broke = true;
+			break;
+		}
+	}
+	// Case that it should be at last entry
+	if (!broke) {
+		indexToInsert = numEntries - 1;
+	}
+	// Now indexToInsert should be where we want it to
+
+	// If we have an size = 3, this means halfway will be index 1
+	// If we have size 2, this means halfway will be index 2
+	int halfway;
+	// False means insert right side
+	// True means insert left side
+	bool insertLeftSide = NULL;
+
+	// TODO: Double check when not late at night
+	// If odd, LEAFSIZE/2 is middle index, 
+	if (INTARRAYLEAFSIZE % 2 == 1) {
+		// Be mindful so splitting splits evenly depending on where new node will be
+		if (indexToInsert <= (INTARRAYLEAFSIZE / 2) ) {
+			insertLeftSide = true;
+			halfway = INTARRAYLEAFSIZE / 2;
+		} else {
+			insertLeftSide = false;
+			halfway = (INTARRAYLEAFSIZE / 2) + 1;
+		}
+	} else {
+		if (indexToInsert <= (INTARRAYLEAFSIZE / 2) ) {
+			insertLeftSide = true;
+		} else {
+			insertLeftSide = false;
+		}
+		halfway = (INTARRAYLEAFSIZE / 2);
+	}
+
+
+	// Iterate indextoplace as we copy over right half
+	int indexToPlace = 0;
+	for (int i = halfway; i < INTARRAYLEAFSIZE; i++, indexToPlace++) {
+		// Copy them over
+		rightLeaf->keyArray[indexToPlace] = leftLeaf->keyArray[i];
+		rightLeaf->ridArray[indexToPlace] = leftLeaf->ridArray[i];
+
+		// Clear left out
+		leftLeaf->keyArray[i] = 0;
+		leftLeaf->ridArray[i] = nullRecord;
+	}
+	// Clear back half of right
+	for (int i = indexToPlace; i < INTARRAYLEAFSIZE; i++) {
+		rightLeaf->keyArray[i] = 0;
+		rightLeaf->ridArray[i] = nullRecord;
+	}
+
+	// Insert left or right depending on what we determined above
+	if (insertLeftSide) {
+		int numEntries = ((Page *) leftLeaf, insertMe.key, true);
+		insertLeafHelper(leftLeaf, insertMe, numEntries);
+	} else {
+		int numEntries = ((Page *) rightLeaf, insertMe.key, true);
+		insertLeafHelper(rightLeaf, insertMe, numEntries);
+	}
+
 }
 
 // TODO: @Carley Use this method in findLeavesHelper to determine maxIndex you can go to safely
