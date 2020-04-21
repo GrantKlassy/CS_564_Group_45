@@ -151,7 +151,7 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		bufMgr->allocPage(this->file, newPageNum, newNode);
 
 		// Insert into root at index 1
-		insertLeafHelper(newNode, ridKeyCombo, 0);
+		insertLeafHelper((LeafNodeInt *) newNode, ridKeyCombo, 0);
 
 		// Set header info
 		this->rootLeaf = true;
@@ -182,7 +182,6 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
 void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> &path) {
 	
-
 	// initialized values
 	int myKey = ridKey.key;
 	RecordId myRid = ridKey.rid;
@@ -198,6 +197,7 @@ void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> 
 	LeafNodeInt * myLeaf = NULL;
 
 	// myNode now holds the info on this page
+	// TODO: Unpin Me
 	bufMgr->readPage(this->file, myPage, myNode);
 
 	// If both checkLeaf1 and 2 are true, we are a leaf
@@ -214,8 +214,18 @@ void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> 
 	if (checkLeaf1 && checkLeaf2) {
 		// Our parent was right before a leaf, we must be a leaf
 		myLeaf = (LeafNodeInt *) myNode;
-		//TODO: Leaf stuff
 
+		int numEntries = getNumEntries((Page *) myLeaf, myKey, true);
+
+		// Condition that we need to split
+		if (numEntries == INTARRAYLEAFSIZE - 1) {
+			//TODO: Split
+		} else {
+			insertLeafHelper(myLeaf, myKey, numEntries);
+			// TODO: Someway to tell we havent split?
+			// TODO: unpin here
+			return;
+		}
 	} 
 	////////////////////////////////////////////////////////////////////////////////////
 	/////////////////////////////// NON-LEAF SECTION ///////////////////////////////////
@@ -225,15 +235,35 @@ void BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> 
 		// Record we were just on this level
 		path.push(myNonLeaf->level);
 		// We want to recurse but first we need to know where to go
+		PageId nextPage = -1;
+
+		// how many entries are in current non-leaf node
+		int numEntries = getNumEntries((Page *) myNonLeaf, myKey, false);
+
+		for (int i = 0; i < numEntries; i++) {
+			// When we hit first time it's under key array, we have pageNo and break
+			if (key < myNonLeaf->keyArray[i]) {
+				nextPage = myNonLeaf->pageNoArray[i];
+				break;
+			}
+		}
+		// If we never found a number that was bigger, ours must be biggest
+		if (nextPage == -1) {
+			nextPage = myNonLeaf->pageNoArray[numEntries];
+		}
 		
+		// recurse down tree
+		insertHelper(nextPage, ridKey, path);
 
-
+		// TODO: Handle splitting on way back up
+	}
+}
 
 // TODO: @Carley Use this method in findLeavesHelper to determine maxIndex you can go to safely
 // The number returned is the number of entries in the non leaf node.  So the last valid index
 // would be the number returned - 1.  This can be used for leaves and non-leaves depending on
 // isLeaf flag
-int BTreeIndex::numEntries(Page * myNode, int myKey, bool isLeaf) {
+int BTreeIndex::getNumEntries(Page * myNode, int myKey, bool isLeaf) {
 	
 	// This should be changed in next line
 	int max = -1;
@@ -268,33 +298,30 @@ int BTreeIndex::numEntries(Page * myNode, int myKey, bool isLeaf) {
 	return max;
 }
 
-
-
-
-
-void BTreeIndex::insertLeafHelper(Page * myNode, RIDKeyPair<int> insertMe, int currNumIndices) {
-
-	LeafNodeInt * myLeaf;
-	myLeaf = (LeafNodeInt *) myNode;
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! NOTE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//!!!!!!!!!!!!!!!!!!!! THIS FUNCTION DOES NOT HANDLE SPLITS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//!!!!!!!!!!!!!!!!!!!! WILL SEGFAULT IF CALLED ON FULL LEAF !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+void BTreeIndex::insertLeafHelper(LeafNodeInt * myLeaf, RIDKeyPair<int> insertMe, int numEntries) {
 
 	// Just insert it at front if it's new
-	if (currNumIndices == 0) {
+	if (numEntries == 0) {
 		myLeaf->keyArray[0] = insertMe.key;
 		myLeaf->ridArray[0] = insertMe.rid;
 		return;
 	}
 
 	// Go through and find place to insert it
-	// TODO: Figure out if we have to split and call it appropriately?
 	int testKey;
 	RecordId testRid;
-	for (int i = 0; i < currNumIndices; i++) {
+	for (int i = 0; i < numEntries; i++) {
 		testKey = myLeaf->keyArray[i];
 		// Have we found the right place to insert
 		if (insertMe.key < testKey) {
 			// We gotta shift everything over
-			// TODO: Double check when not late at night
-			for (int j = currNumIndices - 1; j > i - 1; i--) {
+			// THIS WILL SEGFAULT IF CALLED ON FULL ARRAY
+			// From last entry -> where we are, shift, data up 1
+			for (int j = numEntries - 1; j > i - 1; i--) {
 				leafNode->keyArray[j+1] = leafNode->keyArray[j];
 				leafNode->ridArray[j+1] = leafNode->ridArray[j];
 			}
@@ -303,9 +330,9 @@ void BTreeIndex::insertLeafHelper(Page * myNode, RIDKeyPair<int> insertMe, int c
 			return;
 		}
 	}
-	// If we make it all the way until the end, jsut put it at end
-	leafNode->keyArray[currNumIndices-1] = insertMe.key;
-	leafNode->ridArray[currNumIndices-1] = insertMe.rid;
+	// If we make it all the way until the end, just put it at end
+	leafNode->keyArray[numEntries] = insertMe.key;
+	leafNode->ridArray[numEntries] = insertMe.rid;
 }
 
 // -----------------------------------------------------------------------------
