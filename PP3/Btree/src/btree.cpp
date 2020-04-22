@@ -778,15 +778,23 @@ void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, cons
     int numEntries = getNumEntries(currNode, false);
     while (!smFound) {
         if (curridx >= numEntries) {
+	    // save child pid and unpin curr page
+	    PageId childPid = currNode->pageNoArray[numEntries];
+	    bufMgr->unPinPage(file, currentPageNum, false);
             // reset currNode as right pid
-            bufMgr->readPage(this->file, currNode->pageNoArray[numEntries], currNode);
+            bufMgr->readPage(this->file, childPid, currNode);
+	    this->currentPageNum = childPid;
             smFound = true;
         }
         else {
             if ((lowOp == GT && currNode->keyArray[curridx] > lowVal)
                     || (lowOp == GTE && currNode->keyArray[curridx] >= lowVal)) {
+		// save child pid and unpin curr page
+                PageId childPid = currNode->pageNoArray[curridx];
+                bufMgr->unPinPage(file, currentPageNum, false);
                 // reset currNode as left pid
-                bufMgr->readPage(this->file, currNode->pageNoArray[curridx], currNode);
+                bufMgr->readPage(this->file, childPid, currNode);
+		this->currentPageNum = childPid;
                 smFound = true;
             }
             else {
