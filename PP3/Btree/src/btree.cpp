@@ -62,8 +62,9 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 	if (!(File::exists(outIndexName))) {
 		this->file = new BlobFile(outIndexName, true);
 
+		this->headerPageNum = 0;
 		// Before looking through and adding things, lets alloc metadata at page 0
-		bufMgr->allocPage(this->file, 0, myMetaPage);
+		bufMgr->allocPage(this->file, this->headerPageNum, myMetaPage);
 		myMetaInfo = (IndexMetaInfo*)(myMetaPage);
 		// Since we already set headerPageNum to 0 by default, this is redundant
 		// this->headerPageNum = 0;
@@ -73,6 +74,9 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 		// We again assume insert takes care of this
 		myMetaInfo->rootPageNo = -1;
 		myMetaInfo->rootLeaf = true;
+
+		// unpin header
+		this->bufMgr->unPinPage(this->file, this->headerPageNum, true);
 
 		// Scanner to look through files
 		// Directly taken from main.cpp so this should scan through it correctly
@@ -96,8 +100,6 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
        		        }
         	}
         	catch(EndOfFileException e) {
-			// FIXME: Right place to unpin header file?
-			bufMgr->unPinPage(this->file, 0, true);
         		//std::cout << "Read all records" << std::endl;
         	}
 	} else {
@@ -165,8 +167,8 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		myMetaInfo->rootLeaf = true;
 		myMetaInfo->rootPageNum = newPageNum;
 
-		myMetaInfo->unPinPage(this->file, newPageNum, true);
-		myMetaInfo->unPinPage(this->file, myMetaPage, true);
+		this->bufMgr->unPinPage(this->file, newPageNum, true);
+		this->bufMgr->unPinPage(this->file, this->headerPageNum, true);
 		return;
 	}
 	// Else we'll call a recursive helper function on the root
@@ -198,7 +200,6 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 	LeafNodeInt * myLeaf = NULL;
 
 	// myNode now holds the info on this page
-	// TODO: Unpin Me at end of every possible scenario
 	bufMgr->readPage(this->file, myPage, myNode);
 
 	// If both checkLeaf1 and 2 are true, we are a leaf
@@ -251,8 +252,8 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 			returnPair.pageNo = newPageNum;
 
 			// Unpin pages we were working on before returning	
-			this->bufMgr->unPinPage(this->file, newPageNum, 1);
-			this->bufMgr->unPinPage(this->file, myPage, 1);
+			this->bufMgr->unPinPage(this->file, newPageNum, true);
+			this->bufMgr->unPinPage(this->file, myPage, true);
 
 			return returnPair;
 		} 
@@ -261,7 +262,7 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 			insertLeafHelper(myLeaf, myKey, numEntries);
 
 			// Unpin pages we were working on
-			this->bufMgr->unPinPage(this->file, myPage, 1);	
+			this->bufMgr->unPinPage(this->file, myPage, true);	
 			return NULL;
 		}
 	} 
@@ -302,8 +303,8 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 
 		/////////////////// NO SPLIT OCCURED ///////////////////////////////////////
 		if (splitInfo == NULL) {
-			// We didn't make an edits, not dirty, hence the 0
-			this->bufMgr->unPinPage(this->file, myPage, 0);	
+			// We didn't make an edits, not dirty, hence the false
+			this->bufMgr->unPinPage(this->file, myPage, false);	
 			return NULL;
 		}
 
@@ -322,14 +323,13 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 			newNonLeaf = (NonLeafNodeInt*) newPage;
 
 			Key rootKey = splitNonLeafAndInsert(myNonLeaf, newNonLeaf, splitInfo, numEntries);
-
-			// TODO: What if it's root
+			// If the node we are currently on is root
 			if (path.size() == 0) {
 				// We need to make new root node
 
-				PageId newPageNo;
+				PageId newRootPageNum;
 				Page * newRootPage;
-				bufMgr->allocPage( this->file, newPageNo, newRootPage);
+				bufMgr->allocPage( this->file, newRootPageNum, newRootPage);
 				NonLeafNodeInt * newRoot = (NonLeafNodeInt*) newRootPage;
 				for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
 					newRoot->keyArray[i] = 0;
@@ -341,22 +341,30 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 				newRoot->pageNoArray[0] = myPage;
 				newRoot->pageNoArray[1] = newPageNum;
 
-				this->rootPageNum = newPageNo;
+				this->rootLeaf = false;
+				this->rootPageNum = newRootPageNum;
 				
-				//TODO: Read and update meta page
+				// Set meta info
+				Page* myMetaPage;
+	       		 	IndexMetaInfo* myMetaInfo;
+				this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
+				myMetaInfo = (IndexMetaInfo*) myMetaPage;
+				myMetaInfo->rootLeaf = false;
+				myMetaInfo->rootPageNum = newRootPageNum;
 
-				this->bufMgr->unPinPage(this->file, newPageNo, 1);	
+				this->bufMgr->unPinPage(this->file, this->headerPageNum, true);
+				this->bufMgr->unPinPage(this->file, newRootPageNum, true);	
 
 			}
 
-			this->bufMgr->unPinPage(this->file, newPageNum, 1);	
-			this->bufMgr->unPinPage(this->file, myPage, 1);	
+			this->bufMgr->unPinPage(this->file, newPageNum, true);	
+			this->bufMgr->unPinPage(this->file, myPage, true);	
 
 		}
 		//////////////////// NO NEED TO PROPAGATE SPLIT ////////////////////////////
 		else {
 			insertNonLeafHelper( myNonLeaf, splitInfo, numEntries);
-			this->bufMgr->unPinPage(this->file, myPage, 1);	
+			this->bufMgr->unPinPage(this->file, myPage, true);	
 			return NULL;
 		}
 		
@@ -368,7 +376,6 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 // This function splits a leaf.  If uneven, left side ends up bigger
 // left side -> myLeaf
 // right side -> newLeaf
-// TODO: Fix to return key
 Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt * newNonLeaf, PageKeyPair<int> insertMe, int numEntries) {
 
 	// To make things more readable let's essentially rename some things
