@@ -38,7 +38,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 	idxStr << relationName << '.' << attrByteOffset;
 	std::string outIndexName = idxStr.str(); // name of index file
 
-	this->bufMgr = befMgrIn;
+	this->bufMgr = bufMgrIn;
 	this->scanExecuting = false;
 	// Should always be integer
 	this->attributeType = attrType;
@@ -62,7 +62,6 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 	if (!(File::exists(outIndexName))) {
 		this->file = new BlobFile(outIndexName, true);
 
-		this->headerPageNum = 0;
 		// Before looking through and adding things, lets alloc metadata at page 0
 		bufMgr->allocPage(this->file, this->headerPageNum, myMetaPage);
 		myMetaInfo = (IndexMetaInfo*)(myMetaPage);
@@ -144,7 +143,6 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		RIDKeyPair<int> ridKeyCombo;
 		ridKeyCombo.set(rid, *(keyToInsert));
 
-
 	// If we don't have a root yet, let's make a root, update info
 	if (this->rootPageNum == -1) {
 
@@ -178,11 +176,13 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	std::stack<int> path;
 
 	// Call to recursive helper
+	// FIXME: If root was a leaf and just got split we might have to handle that here
 	insertHelper(this->rootPageNum, ridKeyCombo, path);
 	
 }
 
 // Return value is the page, key pair that needs to be added if splitting occured
+// Recursive Helper function which handles insertions, balancing of b tree
 PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> &path) {
 	
 	// initialized values
@@ -193,7 +193,6 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 	// std::stack<int> path
 
 	// TBD values
-	bool imRoot = false;
 	Page * myNode;
 	// If we ever need to check if we are a leaf or not we can check which one of these is NULL
 	NonLeafNodeInt * myNonLeaf = NULL;
@@ -220,13 +219,17 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 		int numEntries = getNumEntries((Page *) myLeaf, true);
 
 		///////////////////// SPLIT LEAF ////////////////////////////////////////
-		if (numEntries == INTARRAYLEAFSIZE - 1) {
+		// If we are at max capacity
+		if (numEntries == INTARRAYLEAFSIZE ) {
+
+			// Alloc new leaf
 			PageId newPageNum;
 			Page * newPage;
 			LeafNodeInt* newLeaf;
 			this->bufMgr->allocPage(this->file, newPageNum, newPage);
 			newLeaf = (LeafNodeInt*) newLeaf;
 
+			// Split and insert new leaf
 			splitLeafAndInsert(myLeaf, newLeaf, ridKey, numEntries);
 
 			// Improve readability
@@ -255,14 +258,18 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 			this->bufMgr->unPinPage(this->file, newPageNum, true);
 			this->bufMgr->unPinPage(this->file, myPage, true);
 
+			// The fact we didn't return NULL signals to calling function we just split
 			return returnPair;
 		} 
 		////////////////// DONT SPLIT LEAF /////////////////////////////////////////
 		else {
+			// It's safe to just insert mykey in the leaf
 			insertLeafHelper(myLeaf, myKey, numEntries);
 
 			// Unpin pages we were working on
 			this->bufMgr->unPinPage(this->file, myPage, true);	
+
+			// Signal that we didn't split to calling function
 			return NULL;
 		}
 	} 
@@ -280,6 +287,8 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 		// how many entries are in current non-leaf node
 		int numEntries = getNumEntries((Page *) myNonLeaf, false);
 
+		// Determine which page to to recurse down into
+		// TODO: Double check correct page
 		for (int i = 0; i < numEntries; i++) {
 			// When we hit first time it's under key array, we have pageNo and break
 			if (key < myNonLeaf->keyArray[i]) {
@@ -303,7 +312,8 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 
 		/////////////////// NO SPLIT OCCURED ///////////////////////////////////////
 		if (splitInfo == NULL) {
-			// We didn't make an edits, not dirty, hence the false
+			// We didn't make any edits, not dirty, hence the false
+			// FIXME: Just set to dirty just in case?
 			this->bufMgr->unPinPage(this->file, myPage, false);	
 			return NULL;
 		}
@@ -314,19 +324,28 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 		// int numEntries = getNumEntries( myNode, false);
 		// We can hold one more spot in non-leaves than the size
 		//////////////////// PROPAGATE SPLIT UP ////////////////////////////////////
+		// TODO: Check this is right number, it or leaf one might be off by one
 		if (numEntries == INTARRAYNONLEAFSIZE) {
 
+			// Alloc new non-Leaf
 			PageId newPageNum;
 			Page * newPage;
 			NonLeafNodeInt* newNonLeaf;
 			bufMgr->allocPage(this->file, newPageNum, newPage);
 			newNonLeaf = (NonLeafNodeInt*) newPage;
 
-			Key rootKey = splitNonLeafAndInsert(myNonLeaf, newNonLeaf, splitInfo, numEntries);
+			Key returnKey = splitNonLeafAndInsert(myNonLeaf, newNonLeaf, splitInfo, numEntries);
+			// Get all of the stuff we need to return
+			// The pageNo of the rightLeaf node we just made
+			PageId returnPageNum = newPageNum;
+			PageKeyPair<int> returnPair;
+			returnPair.key = returnKey;
+			returnPair.pageNo = newPageNum;
+
 			// If the node we are currently on is root
 			if (path.size() == 0) {
-				// We need to make new root node
 
+				// We need to make new root node cuz we have nothing to return to?
 				PageId newRootPageNum;
 				Page * newRootPage;
 				bufMgr->allocPage( this->file, newRootPageNum, newRootPage);
@@ -336,8 +355,9 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 					newRoot->pageNoArray[i] = 0;
 				}
 				newRoot->level = myNonLeaf->level + 1;
-				newRoot->keyArray[0] = rootKey;
-				// TODO: double check
+				newRoot->keyArray[0] = returnKey;
+
+				// Old page on left, new page on right
 				newRoot->pageNoArray[0] = myPage;
 				newRoot->pageNoArray[1] = newPageNum;
 
@@ -359,10 +379,13 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 
 			this->bufMgr->unPinPage(this->file, newPageNum, true);	
 			this->bufMgr->unPinPage(this->file, myPage, true);	
+			// FIXME: Doesn't matter if we return garbage on root since it's not being used in original insert function?
+			return returnPair;
 
 		}
 		//////////////////// NO NEED TO PROPAGATE SPLIT ////////////////////////////
 		else {
+			// Just insert and return NULL to say split didn't go up
 			insertNonLeafHelper( myNonLeaf, splitInfo, numEntries);
 			this->bufMgr->unPinPage(this->file, myPage, true);	
 			return NULL;
@@ -373,9 +396,11 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 	}
 }
 
-// This function splits a leaf.  If uneven, left side ends up bigger
+// This function splits a non-leaf.
 // left side -> myLeaf
 // right side -> newLeaf
+// FIXME: I'm concerned that the splitting functions will do bad things.  We should check
+// these thoroughly
 Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt * newNonLeaf, PageKeyPair<int> insertMe, int numEntries) {
 
 	// To make things more readable let's essentially rename some things
@@ -482,7 +507,6 @@ Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt
 // This function splits a leaf.  If uneven, left side ends up bigger
 // left side -> myLeaf
 // right side -> newLeaf
-// FIXME: Fix to return key?
 void BTreeIndex::splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf, RIDKeyPair<int> insertMe, int numEntries) {
 
 	// To make things more readable let's essentially rename some things
@@ -652,6 +676,7 @@ void BTreeIndex::insertLeafHelper(LeafNodeInt * myLeaf, RIDKeyPair<int> insertMe
 // This function is very similar to the leaf-version except we need to place the page to 
 // the right of our key.  Also, pageNo arrays are one larger than key arrays
 // TODO: Check indices are correct in this version
+// FIXME: This is the other function I'm scared of.  Check closely
 void BTreeIndex::insertNonLeafHelper(NonLeafNodeInt * myNonLeaf, PageKeyPair<int> insertMe, int numEntries) {
 
 	// Just insert it at front if it's new
