@@ -17,6 +17,16 @@
 #include "exceptions/file_not_found_exception.h"
 #include "exceptions/end_of_file_exception.h"
 
+#include <stack>
+
+// This is the structure for tuples in the base relation
+
+typedef struct tuple {
+	int i;
+	double d;
+	char s[64];
+} RECORD;
+
 
 //#define DEBUG
 
@@ -36,7 +46,9 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 	//Taken from spec: How to get name of index file
 	std::ostringstream idxStr;
 	idxStr << relationName << '.' << attrByteOffset;
-	std::string outIndexName = idxStr.str(); // name of index file
+
+	// FIXME GRANT: Changing this, outIndexName is already a parameter?
+	//std::string outIndexName = idxStr.str(); // name of index file
 
 	this->bufMgr = bufMgrIn;
 	this->scanExecuting = false;
@@ -87,8 +99,10 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
                         	//Assuming RECORD.i is our key, lets extract the key, which we know is INTEGER and whose byte offset is also know inside the record.
                         	std::string recordStr = fscan.getRecord();
                         	const char *record = recordStr.c_str();
+
 				// Edited by mike to be int*
                         	int * key = ((int *)(record + offsetof (RECORD, i)));
+
                         	//std::cout << "Extracted : " << key << std::endl;
 
 				// Added by mike
@@ -103,11 +117,11 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
         	}
 	} else {
 		// open file
-		this->file = new BlobFile((outIndexName, false);
+		this->file = new BlobFile(outIndexName, false);
 		this->headerPageNum = file->getFirstPageNo();
 		this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
 		myMetaInfo = (IndexMetaInfo*) myMetaPage;
-		this->attributeByteOffset = myMetaInfo->attrByteOffset;
+		this->attrByteOffset = myMetaInfo->attrByteOffset;
 		this->rootPageNum = myMetaInfo->rootPageNo;
 		this->attributeType = myMetaInfo->attrType;
 		this->rootLeaf = myMetaInfo->rootLeaf;
@@ -123,7 +137,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 BTreeIndex::~BTreeIndex()
 {
 	this->scanExecuting = false;
-	this->bugMgr->flushFile(this->file);
+	this->bufMgr->flushFile(this->file);
 	delete this->file;
 }
 
@@ -144,10 +158,10 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		ridKeyCombo.set(rid, *(keyToInsert));
 
 	// If we don't have a root yet, let's make a root, update info
-	if (this->rootPageNum == -1) {
+	if ((int)this->rootPageNum == -1) {
 
 		Page * newNode;
-		PageID newPageNum;
+		PageId newPageNum;
 		bufMgr->allocPage(this->file, newPageNum, newNode);
 
 		// Insert into root at index 1
@@ -163,7 +177,7 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
 		myMetaInfo = (IndexMetaInfo*) myMetaPage;
 		myMetaInfo->rootLeaf = true;
-		myMetaInfo->rootPageNum = newPageNum;
+		myMetaInfo->rootPageNo = newPageNum;
 
 		this->bufMgr->unPinPage(this->file, newPageNum, true);
 		this->bufMgr->unPinPage(this->file, this->headerPageNum, true);
@@ -183,7 +197,7 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
 // Return value is the page, key pair that needs to be added if splitting occured
 // Recursive Helper function which handles insertions, balancing of b tree
-PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> &path) {
+PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair<int> ridKey, std::stack<int> &path) {
 	
 	// initialized values
 	int myKey = ridKey.key;
@@ -247,9 +261,12 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 
 			// Get all of the stuff we need to return
 			// The middle key we are going to use in non-leaf node
-			key returnKey = rightLeaf->keyArray[0]; 
+			int returnKey = rightLeaf->keyArray[0]; 
 			// The pageNo of the rightLeaf node we just made
-			PageId returnPageNum = newPageNum;
+
+			// FIXME GRANT: returnPageNum is never used
+			//PageId returnPageNum = newPageNum;
+
 			PageKeyPair<int> returnPair;
 			returnPair.key = returnKey;
 			returnPair.pageNo = newPageNum;
@@ -264,12 +281,20 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 		////////////////// DONT SPLIT LEAF /////////////////////////////////////////
 		else {
 			// It's safe to just insert mykey in the leaf
-			insertLeafHelper(myLeaf, myKey, numEntries);
+
+			// FIXME GRANT: This needs to be a RIDKeyPair, not a key
+			// FIXME GRANT: Here is the function def
+			//void insertLeafHelper(LeafNodeInt * myLeaf, RIDKeyPair<int> insertMe, int numEntries);
+
+			// \/ \/ \/ \/ FIX THIS
+			//insertLeafHelper(myLeaf, myKey, numEntries);
 
 			// Unpin pages we were working on
 			this->bufMgr->unPinPage(this->file, myPage, true);	
 
 			// Signal that we didn't split to calling function
+
+			// FIXME GRANT: We can't return null, we need to return a PageKeyPair<int>
 			return NULL;
 		}
 	} 
@@ -291,7 +316,9 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 		// TODO: Double check correct page
 		for (int i = 0; i < numEntries; i++) {
 			// When we hit first time it's under key array, we have pageNo and break
-			if (key < myNonLeaf->keyArray[i]) {
+
+			// FIXME GRANT: "key" is never declared here. Should it be myKey?
+			if (myKey < myNonLeaf->keyArray[i]) {
 				nextPage = myNonLeaf->pageNoArray[i];
 				break;
 			}
@@ -334,7 +361,7 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 			bufMgr->allocPage(this->file, newPageNum, newPage);
 			newNonLeaf = (NonLeafNodeInt*) newPage;
 
-			Key returnKey = splitNonLeafAndInsert(myNonLeaf, newNonLeaf, splitInfo, numEntries);
+			int returnKey = splitNonLeafAndInsert(myNonLeaf, newNonLeaf, splitInfo, numEntries);
 			// Get all of the stuff we need to return
 			// The pageNo of the rightLeaf node we just made
 			PageId returnPageNum = newPageNum;
