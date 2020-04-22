@@ -844,8 +844,8 @@ const void BTreeIndex::scanNext(RecordId& outRid)
     {
       throw new IndexScanCompletedException();
     }
-    currentPageNum = currentNode->rightSibPageNo;
-    bufMgr->readPage(file, currentPageNum, currentPageData);
+    this->currentPageNum = currentNode->rightSibPageNo;
+    bufMgr->readPage(file, this->currentPageNum, this->currentPageData);
     currentNode = (LeafNodeInt *) currentPageData;
     // Resetting nextEntry
     this->nextEntry = 0;
@@ -884,7 +884,15 @@ const bool BTreeIndex::keyCheck(int lowVal, int highVal, const Operator lowOp, c
 //
 const void BTreeIndex::endScan() 
 {
-
+if(!this->scanExecuting)
+    throw new ScanNotInitializedException();
+this->scanExecuting = false;
+  // Unpin page
+bufMgr->unPinPage(file, currentPageNum, false);
+  // Resetting variable
+this->currentPageData = nullptr;
+this->currentPageNum = static_cast<PageId>(-1);
+this->nextEntry = -1;
 }
 
 }
