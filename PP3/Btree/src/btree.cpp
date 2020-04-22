@@ -690,6 +690,8 @@ const void BTreeIndex::startScan(const void* lowValParm,
     if (lowValParm > highValParm) {
 	throw new BadScanrangeException;
     }
+    lowOp = lowOpParm;
+    highOp = highOpParm;	
 
     // check if scan already in progress and if so, end it
     if (this->scanExecuting) {
