@@ -327,7 +327,17 @@ class BTreeIndex {
 	 * Destructor should not throw any exceptions. All exceptions should be caught in here itself. 
 	 * */
 	~BTreeIndex();
-
+  /**
+    * Helper function to check if the key is satisfies
+    * @param lowVal   Low value of range
+    * @param highVal  High value of range
+    * @param lowOp    Low operator 
+    * @param highOp   High operator
+    * @param key      key
+    * @return True if satisfies False if not
+    */
+  const bool checkKey(int lowVal, int highVal, const Operator lowOp, const Operator highOp, int key); 
+ public:
 
   /**
 	 * Insert a new entry using the pair <value,rid>. 
