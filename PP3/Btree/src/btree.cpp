@@ -912,14 +912,19 @@ const void BTreeIndex::scanNext(RecordId& outRid)
 //helper for scanNext() to check the key(I thought it was useful)					  
 const bool BTreeIndex::keyCheck(int lowVal, int highVal, const Operator lowOp, const Operator highOp, int key)
 {
-  if(lowOp == GTE && highOp == LTE)
+  if(lowOp == GTE && highOp == LTE) {
     return key <= highVal && key >= lowVal;
-  else if(lowOp == GTE && highOp == LT)  
-    return key < highVal && key >= lowVal;  
-  else if(lowOp == GT && highOp == LTE)  
+  } else if (lowOp == GTE && highOp == LT) {
+    return key < highVal && key >= lowVal; 
+  } else if(lowOp == GT && highOp == LTE) {
     return key <= highVal && key > lowVal;  
-  else  
-    return key < highVal && key > lowVal;  
+  } else if (lowOp == GT && highOp == LT) {
+    return key < highVal && key > lowVal;
+  } else {
+	// FIXME This needs to throw a bad op exception
+    return false;
+  }
+
 }
 
 // -----------------------------------------------------------------------------
