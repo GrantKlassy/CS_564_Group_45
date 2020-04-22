@@ -203,6 +203,7 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 
 	// If both checkLeaf1 and 2 are true, we are a leaf
 	// Not sure if I'll get NULL pointer if I call top on an empty one so called this way
+	// TODO: What if root is a leaf
 	bool checkLeaf1 = (path.size() != 0);
 	bool checkLeaf2 = false;
 	if (checkLeaf1) {
@@ -219,6 +220,7 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 		int numEntries = getNumEntries((Page *) myLeaf, true);
 
 		///////////////////// SPLIT LEAF ////////////////////////////////////////
+		// TODO: If this->rootLeaf is true, we need to handle root stuff
 		// If we are at max capacity
 		if (numEntries == INTARRAYLEAFSIZE ) {
 
@@ -414,6 +416,7 @@ Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt
 	// We are going to need to NULL out some things
 	PageId nullPage = NULL;
 
+	// FIXME: THis should be leftmost entry on right side
 	Key middleKey = myNonLeaf->keyArray[nodeOccupancy/2];
 
 	/*
@@ -470,7 +473,7 @@ Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt
 
 	// Iterate indextoplace as we copy over right half
 	int indexToPlace = 0;
-	for (int i = halfway; i < INTARRAYLEAFSIZE; i++, indexToPlace++) {
+	for (int i = halfway; i < INTARRAYNONLEAFSIZE; i++, indexToPlace++) {
 		// Copy them over
 		right->keyArray[indexToPlace] = left->keyArray[i];
 		right->ridArray[indexToPlace] = left->pageNoArray[i];
@@ -480,7 +483,7 @@ Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt
 		left->pageNoArray[i] = NULL;
 	}
 	// Clear back half of right
-	for (int i = indexToPlace; i < INTARRAYLEAFSIZE; i++) {
+	for (int i = indexToPlace; i < INTARRAYNONLEAFSIZE; i++) {
 		right->keyArray[i] = 0;
 		right->pageNoArray[i] = NULL;
 	}
@@ -501,6 +504,7 @@ Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt
 		int numRight = ((Page *) right, insertMe.key, false);
 		insertNonLeafHelper(right, insertMe, numEntries);
 	}
+	// MIGHT not want to return this, just find middle key after
 	return middleKey;
 }
 
@@ -537,6 +541,7 @@ void BTreeIndex::splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf,
 	}
 	// Case that it should be at last entry
 	if (!broke) {
+		// FIXME: -1 correct
 		indexToInsert = numEntries - 1;
 	}
 	// Now indexToInsert should be where we want it to
