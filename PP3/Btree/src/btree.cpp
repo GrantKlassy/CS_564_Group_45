@@ -743,10 +743,11 @@ const void BTreeIndex::startScan(const void* lowValParm,
 void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, const void* lowVal, const Operator lowOp) {
     int curridx = 0;
     bool smFound = false;
+    int numEntries = getNumEntries(currNode, false);
     while (!smFound) {
-        if (curridx >= INTARRAYNONLEAFSIZE) {
+        if (curridx >= numEntries) {
             // reset currNode as right pid
-            bufMgr->readPage(this->file, currNode->pageNoArray[INTARRAYNONLEAFSIZE], currNode);
+            bufMgr->readPage(this->file, currNode->pageNoArray[numEntries], currNode);
             smFound = true;
         }
         else {
@@ -782,7 +783,8 @@ void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, cons
  */
 int BTreeIndex::lowLeafHelper(LeafNodeInt * currLeaf, const void* lowVal, const Operator lowOp) {
     int startidx = -1;
-    for (int i = INTARRAYLEAFSIZE-1; i >= 0; i--) {
+    int numEntries = getNumEntries(currLeaf, true);
+    for (int i = numEntries-1; i >= 0; i--) {
 	if ((lowOp == GT && currLeaf->keyArray[i] > lowVal) 
 		|| (lowOp == GTE && currLeaf->keyArray[i] >= lowVal)) {
 	    startidx = i;
