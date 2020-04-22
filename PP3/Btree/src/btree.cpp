@@ -223,8 +223,7 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 			PageId newPageNum;
 			Page * newPage;
 			LeafNodeInt* newLeaf;
-			//TODO: Unpin
-			bufMgr->allocPage(this->file, newPageNum, newPage);
+			this->bufMgr->allocPage(this->file, newPageNum, newPage);
 			newLeaf = (LeafNodeInt*) newLeaf;
 
 			splitLeafAndInsert(myLeaf, newLeaf, ridKey, numEntries);
@@ -251,16 +250,18 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 			returnPair.key = returnKey;
 			returnPair.pageNo = newPageNum;
 
-			// TODO: Unpin newPageNum, whatever page myNode is
-			
+			// Unpin pages we were working on before returning	
+			this->bufMgr->unPinPage(this->file, newPageNum, 1);
+			this->bufMgr->unPinPage(this->file, myPage, 1);
+
 			return returnPair;
 		} 
 		////////////////// DONT SPLIT LEAF /////////////////////////////////////////
 		else {
 			insertLeafHelper(myLeaf, myKey, numEntries);
 
-			// TODO: unpin here
-			
+			// Unpin pages we were working on
+			this->bufMgr->unPinPage(this->file, myPage, 1);	
 			return NULL;
 		}
 	} 
@@ -301,7 +302,8 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 
 		/////////////////// NO SPLIT OCCURED ///////////////////////////////////////
 		if (splitInfo == NULL) {
-			// TODO: unpin
+			// We didn't make an edits, not dirty, hence the 0
+			this->bufMgr->unPinPage(this->file, myPage, 0);	
 			return NULL;
 		}
 
@@ -316,7 +318,6 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 			PageId newPageNum;
 			Page * newPage;
 			NonLeafNodeInt* newNonLeaf;
-			//TODO: Unpin
 			bufMgr->allocPage(this->file, newPageNum, newPage);
 			newNonLeaf = (NonLeafNodeInt*) newPage;
 
@@ -344,17 +345,18 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 				
 				//TODO: Read and update meta page
 
-				// TODO: Unpin
+				this->bufMgr->unPinPage(this->file, newPageNo, 1);	
 
 			}
 
-			// TODO: Unpin
+			this->bufMgr->unPinPage(this->file, newPageNum, 1);	
+			this->bufMgr->unPinPage(this->file, myPage, 1);	
 
 		}
 		//////////////////// NO NEED TO PROPAGATE SPLIT ////////////////////////////
 		else {
 			insertNonLeafHelper( myNonLeaf, splitInfo, numEntries);
-			//TODO: Unpin
+			this->bufMgr->unPinPage(this->file, myPage, 1);	
 			return NULL;
 		}
 		
