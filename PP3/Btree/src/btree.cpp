@@ -829,8 +829,53 @@ void BTreeIndex::scanLeafHelper(const void* highVal, const Operator highOp) {
 
 const void BTreeIndex::scanNext(RecordId& outRid) 
 {
-    //note to whoever does this method: make sure you increment nextEntry appropriately
-    //because I am not doing that in startScan
+    if(!this->scanExecuting)
+  {
+    throw ScanNotInitializedException();
+  }
+	// Casting page to node
+	LeafNodeInt* currentNode = (LeafNodeInt *) currentPageData;
+  if(currentNode->ridArray[nextEntry].page_number == 0 or this->nextEntry == this->leafOccupancy)
+  {
+    //read page
+    bufMgr->unPinPage(file, currentPageNum, false);
+    // if there is no next leaves
+    if(currentNode->rightSibPageNo == 0)
+    {
+      throw new IndexScanCompletedException();
+    }
+    currentPageNum = currentNode->rightSibPageNo;
+    bufMgr->readPage(file, currentPageNum, currentPageData);
+    currentNode = (LeafNodeInt *) currentPageData;
+    // Resetting nextEntry
+    this->nextEntry = 0;
+  }
+ 
+  int key = currentNode->keyArray[this->nextEntry];
+  if(keyCheck(*((int *)lowValParm), *((int *)highValParm), lowOp, highOp, key))
+  {
+    outRid = currentNode->ridArray[this->nextEntry];
+    // Incrment nextEntry
+    this->nextEntry++;
+    // If current page has been scanned to its entirety
+  }
+  else
+  {
+    throw new IndexScanCompletedException();
+  }
+}
+					  
+//helper for scanNext() to check the key(I thought it was useful)					  
+const bool BTreeIndex::keyCheck(int lowVal, int highVal, const Operator lowOp, const Operator highOp, int key)
+{
+  if(lowOp == GTE && highOp == LTE)
+    return key <= highVal && key >= lowVal;
+  else if(lowOp == GTE && highOp == LT)  
+    return key < highVal && key >= lowVal;  
+  else if(lowOp == GT && highOp == LTE)  
+    return key <= highVal && key > lowVal;  
+  else  
+    return key < highVal && key > lowVal;  
 }
 
 // -----------------------------------------------------------------------------
