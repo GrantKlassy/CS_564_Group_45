@@ -168,6 +168,14 @@ namespace badgerdb
 		RIDKeyPair<int> ridKeyCombo;
 		ridKeyCombo.set(rid, *(keyToInsert));
 
+
+		// FIXME FIXME DEBUG
+		Page* myMetaPage;
+		IndexMetaInfo* myMetaInfo;
+		this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
+		myMetaInfo = (IndexMetaInfo*) myMetaPage;
+		std::cout << myMetaInfo->rootPageNo << std::endl;
+
 		// If we don't have a root yet, let's make a root, update info
 		// GRANT: Unsigned vs signed int compare
 		// MIKE: Changed so that 0 means that nothing is done //FIXME
