@@ -839,7 +839,9 @@ void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, cons
 	    PageId childPid = currNode->pageNoArray[numEntries];
 	    bufMgr->unPinPage(file, currentPageNum, false);
             // reset currNode as right pid
-            bufMgr->readPage(this->file, childPid, (Page*)currNode);
+	    Page* tmpPage;
+            bufMgr->readPage(this->file, childPid, tmpPage);
+            currNode = (NonLeafNodeInt*) tmpPage;
 	    this->currentPageNum = childPid;
             smFound = true;
         }
@@ -852,7 +854,9 @@ void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, cons
                 PageId childPid = currNode->pageNoArray[curridx];
                 bufMgr->unPinPage(file, currentPageNum, false);
                 // reset currNode as left pid
-                bufMgr->readPage(this->file, childPid, (Page*)currNode);
+		    Page* tmpPage;
+		    bufMgr->readPage(this->file, childPid, tmpPage);
+		    currNode = (NonLeafNodeInt*) tmpPage;
 		this->currentPageNum = childPid;
                 smFound = true;
             }
