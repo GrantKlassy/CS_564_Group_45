@@ -17,6 +17,16 @@
 #include "exceptions/file_not_found_exception.h"
 #include "exceptions/end_of_file_exception.h"
 
+#include <stack>
+
+// This is the structure for tuples in the base relation
+
+typedef struct tuple {
+	int i;
+	double d;
+	char s[64];
+} RECORD;
+
 
 //#define DEBUG
 
@@ -36,7 +46,9 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 	//Taken from spec: How to get name of index file
 	std::ostringstream idxStr;
 	idxStr << relationName << '.' << attrByteOffset;
-	std::string outIndexName = idxStr.str(); // name of index file
+
+	// FIXME GRANT: Changing this, outIndexName is already a parameter?
+	//std::string outIndexName = idxStr.str(); // name of index file
 
 	this->bufMgr = bufMgrIn;
 	this->scanExecuting = false;
@@ -87,8 +99,10 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
                         	//Assuming RECORD.i is our key, lets extract the key, which we know is INTEGER and whose byte offset is also know inside the record.
                         	std::string recordStr = fscan.getRecord();
                         	const char *record = recordStr.c_str();
+
 				// Edited by mike to be int*
                         	int * key = ((int *)(record + offsetof (RECORD, i)));
+
                         	//std::cout << "Extracted : " << key << std::endl;
 
 				// Added by mike
@@ -103,11 +117,11 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
         	}
 	} else {
 		// open file
-		this->file = new BlobFile((outIndexName, false);
+		this->file = new BlobFile(outIndexName, false);
 		this->headerPageNum = file->getFirstPageNo();
 		this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
 		myMetaInfo = (IndexMetaInfo*) myMetaPage;
-		this->attributeByteOffset = myMetaInfo->attrByteOffset;
+		this->attrByteOffset = myMetaInfo->attrByteOffset;
 		this->rootPageNum = myMetaInfo->rootPageNo;
 		this->attributeType = myMetaInfo->attrType;
 		this->rootLeaf = myMetaInfo->rootLeaf;
@@ -123,7 +137,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 BTreeIndex::~BTreeIndex()
 {
 	this->scanExecuting = false;
-	this->bugMgr->flushFile(this->file);
+	this->bufMgr->flushFile(this->file);
 	delete this->file;
 }
 
@@ -144,10 +158,11 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		ridKeyCombo.set(rid, *(keyToInsert));
 
 	// If we don't have a root yet, let's make a root, update info
-	if (this->rootPageNum == -1) {
+	// FIXME GRANT: Unsigned vs signed int compare
+	if ((int)this->rootPageNum == -1) {
 
 		Page * newNode;
-		PageID newPageNum;
+		PageId newPageNum;
 		bufMgr->allocPage(this->file, newPageNum, newNode);
 
 		// Insert into root at index 1
@@ -163,7 +178,7 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
 		myMetaInfo = (IndexMetaInfo*) myMetaPage;
 		myMetaInfo->rootLeaf = true;
-		myMetaInfo->rootPageNum = newPageNum;
+		myMetaInfo->rootPageNo = newPageNum;
 
 		this->bufMgr->unPinPage(this->file, newPageNum, true);
 		this->bufMgr->unPinPage(this->file, this->headerPageNum, true);
@@ -183,7 +198,7 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
 // Return value is the page, key pair that needs to be added if splitting occured
 // Recursive Helper function which handles insertions, balancing of b tree
-PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std::stack<int> &path) {
+PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair<int> ridKey, std::stack<int> &path) {
 	
 	// initialized values
 	int myKey = ridKey.key;
@@ -249,9 +264,12 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 
 			// Get all of the stuff we need to return
 			// The middle key we are going to use in non-leaf node
-			key returnKey = rightLeaf->keyArray[0]; 
+			int returnKey = rightLeaf->keyArray[0]; 
 			// The pageNo of the rightLeaf node we just made
-			PageId returnPageNum = newPageNum;
+
+			// FIXME GRANT: returnPageNum is never used
+			//PageId returnPageNum = newPageNum;
+
 			PageKeyPair<int> returnPair;
 			returnPair.key = returnKey;
 			returnPair.pageNo = newPageNum;
@@ -266,12 +284,20 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 		////////////////// DONT SPLIT LEAF /////////////////////////////////////////
 		else {
 			// It's safe to just insert mykey in the leaf
-			insertLeafHelper(myLeaf, myKey, numEntries);
+
+			// FIXME GRANT: This needs to be a RIDKeyPair, not a key
+			// FIXME GRANT: Here is the function def
+			//void insertLeafHelper(LeafNodeInt * myLeaf, RIDKeyPair<int> insertMe, int numEntries);
+
+			// \/ \/ \/ \/ FIX THIS
+			//insertLeafHelper(myLeaf, myKey, numEntries);
 
 			// Unpin pages we were working on
 			this->bufMgr->unPinPage(this->file, myPage, true);	
 
 			// Signal that we didn't split to calling function
+
+			// FIXME GRANT: We can't return null, we need to return a PageKeyPair<int>
 			return NULL;
 		}
 	} 
@@ -293,13 +319,16 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 		// TODO: Double check correct page
 		for (int i = 0; i < numEntries; i++) {
 			// When we hit first time it's under key array, we have pageNo and break
-			if (key < myNonLeaf->keyArray[i]) {
+
+			// FIXME GRANT: "key" is never declared here. Should it be myKey?
+			if (myKey < myNonLeaf->keyArray[i]) {
 				nextPage = myNonLeaf->pageNoArray[i];
 				break;
 			}
 		}
 		// If we never found a number that was bigger, ours must be biggest
-		if (nextPage == -1) {
+		// FIXME GRANT: Unsigned vs signed int compare
+		if ((int)nextPage == -1) {
 			nextPage = myNonLeaf->pageNoArray[numEntries];
 		}
 		
@@ -336,10 +365,15 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 			bufMgr->allocPage(this->file, newPageNum, newPage);
 			newNonLeaf = (NonLeafNodeInt*) newPage;
 
-			Key returnKey = splitNonLeafAndInsert(myNonLeaf, newNonLeaf, splitInfo, numEntries);
+			int returnKey = splitNonLeafAndInsert(myNonLeaf, newNonLeaf, splitInfo, numEntries);
 			// Get all of the stuff we need to return
 			// The pageNo of the rightLeaf node we just made
-			PageId returnPageNum = newPageNum;
+
+
+			// FIXME GRANT: returnPageNum unused
+			//PageId returnPageNum = newPageNum;
+
+
 			PageKeyPair<int> returnPair;
 			returnPair.key = returnKey;
 			returnPair.pageNo = newPageNum;
@@ -403,7 +437,7 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair ridKey, std:
 // right side -> newLeaf
 // FIXME: I'm concerned that the splitting functions will do bad things.  We should check
 // these thoroughly
-Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt * newNonLeaf, PageKeyPair<int> insertMe, int numEntries) {
+int BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt * newNonLeaf, PageKeyPair<int> insertMe, int numEntries) {
 
 	// To make things more readable let's essentially rename some things
 	NonLeafNodeInt * left;
@@ -417,7 +451,7 @@ Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt
 	PageId nullPage = NULL;
 
 	// FIXME: THis should be leftmost entry on right side
-	Key middleKey = myNonLeaf->keyArray[nodeOccupancy/2];
+	int middleKey = myNonLeaf->keyArray[nodeOccupancy/2];
 
 	/*
 	// grabbed
@@ -505,6 +539,7 @@ Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt
 		insertNonLeafHelper(right, insertMe, numEntries);
 	}
 	// MIGHT not want to return this, just find middle key after
+	// FIXME GRANT: What is middleKey? Not declared
 	return middleKey;
 }
 
@@ -594,11 +629,11 @@ void BTreeIndex::splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf,
 
 	// Insert left or right depending on what we determined above
 	if (insertLeftSide) {
-		int numLeft = getNumEntries((Page *) leftLeaf, insertMe.key, true);
+		int numLeft = getNumEntries((Page *) leftLeaf, true);
 		insertLeafHelper(leftLeaf, insertMe, numLeft);
 	} else {
-		int numRight = getNumEntries((Page *) rightLeaf, insertMe.key, true);
-		insertLeafHelper(rightLeaf, insertMe, numLeft);
+		int numRight = getNumEntries((Page *) rightLeaf, true);
+		insertLeafHelper(rightLeaf, insertMe, numRight);
 	}
 
 }
@@ -623,7 +658,7 @@ int BTreeIndex::getNumEntries(Page * myNode, bool isLeaf) {
 
 	for (int i = 0; i < max; i++) {
 		if (isLeaf) {
-			myRid = ( (leafNodeInt *) myNode )->ridArray[i];
+			myRid = ( (LeafNodeInt *) myNode )->ridArray[i];
 			// FIXME: Will this error out when I hit end
 			// FIXME: Assumes when we go too far things are zeroed out
 			// We know page_number 0 is metadata so that should be safe
@@ -701,17 +736,17 @@ void BTreeIndex::insertNonLeafHelper(NonLeafNodeInt * myNonLeaf, PageKeyPair<int
 			// THIS WILL SEGFAULT IF CALLED ON FULL ARRAY
 			// From last entry -> where we are, shift, data up 1
 			for (int j = numEntries - 1; j > i - 1; j--) {
-				myLeaf->keyArray[j+1] = myLeaf->keyArray[j];
-				myLeaf->pageNoArray[j+2] = myLeaf->pageNoArray[j+1];
+				myNonLeaf->keyArray[j+1] = myNonLeaf->keyArray[j];
+				myNonLeaf->pageNoArray[j+2] = myNonLeaf->pageNoArray[j+1];
 			}
-			myLeaf->keyArray[i] = insertMe.key;
-			myLeaf->pageNoArray[i+1] = insertMe.pageNo;
+			myNonLeaf->keyArray[i] = insertMe.key;
+			myNonLeaf->pageNoArray[i+1] = insertMe.pageNo;
 			return;
 		}
 	}
 	// If we make it all the way until the end, just put it at end
-	myLeaf->keyArray[numEntries] = insertMe.key;
-	myLeaf->pageNoArray[numEntries+1] = insertMe.pageNo;
+	myNonLeaf->keyArray[numEntries] = insertMe.key;
+	myNonLeaf->pageNoArray[numEntries+1] = insertMe.pageNo;
 }
 
 // -----------------------------------------------------------------------------
@@ -741,10 +776,10 @@ const void BTreeIndex::startScan(const void* lowValParm,
     bufMgr->readPage(this->file, rootPageNum, this->currentPageData);
 
     if (this->rootLeaf) {
-	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> this->currentPageData;
+	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
 	this->nextEntry = lowLeafHelper(currLeaf, lowValParm, lowOpParm);	
 	
-	this->currentPageData = reinterpret_cast<Page*> currLeaf;
+	this->currentPageData = reinterpret_cast<Page*>(currLeaf);
         scanLeafHelper(highValParm, highOpParm);
     }
     else {
@@ -753,7 +788,7 @@ const void BTreeIndex::startScan(const void* lowValParm,
 	// all records from it are read or the scan has reached its end".  That makes it sound
 	// like in scanNext we bring it into the buffer pool and pin it.
 
-	NonLeafNodeInt *currNode = reinterpret_cast<NonLeafNodeInt*> this->currentPageData;
+	NonLeafNodeInt *currNode = reinterpret_cast<NonLeafNodeInt*>(this->currentPageData);
 	
 	// if the next level from root is the leaf level, call with bool nextLeaf = true, otherwise false
 	if (currNode->level != 1) {
@@ -764,11 +799,11 @@ const void BTreeIndex::startScan(const void* lowValParm,
 	}
 	
 	// we should return with currNode --> first leaf node in range, so cast to leaf struct
-	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> currNode;	
+	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(currNode);	
 	this->nextEntry = lowLeafHelper(currLeaf, lowValParm, lowOpParm);
 
 	// recast currLeaf to Page* and store in currentPageData to save as global data
-	this->currentPageData = reinterpret_cast<Page*> currLeaf;
+	this->currentPageData = reinterpret_cast<Page*>(currLeaf);
 	scanLeafHelper(highValParm, highOpParm);
     }
     endScan();
@@ -792,8 +827,12 @@ void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, cons
             smFound = true;
         }
         else {
-            if ((lowOp == GT && currNode->keyArray[curridx] > lowVal)
-                    || (lowOp == GTE && currNode->keyArray[curridx] >= lowVal)) {
+
+		// FIXME GRANT: Casting lowVal which is a void* to a *(*int)
+		// FIXME GRANT: Is this ok? I hope so
+
+            if ((lowOp == GT && currNode->keyArray[curridx] > *((int*)lowVal))
+                    || (lowOp == GTE && currNode->keyArray[curridx] >= *((int*)lowVal))) {
 		// save child pid and unpin curr page
                 PageId childPid = currNode->pageNoArray[curridx];
                 bufMgr->unPinPage(file, currentPageNum, false);
@@ -827,11 +866,15 @@ void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, cons
  * Throws new NoSuchKeyFoundException in the case where we couldn't find and value >/>= lowVal
  */
 int BTreeIndex::lowLeafHelper(LeafNodeInt * currLeaf, const void* lowVal, const Operator lowOp) {
+
+	// FIXME GRANT: lowVal is a void*, can we just cast it to *(*int) and use it to compare?
+	// FIXME GRANT: That's what I'm doing to get it to compile...
+
     int startidx = -1;
     int numEntries = getNumEntries(currLeaf, true);
     for (int i = numEntries-1; i >= 0; i--) {
-	if ((lowOp == GT && currLeaf->keyArray[i] > lowVal) 
-		|| (lowOp == GTE && currLeaf->keyArray[i] >= lowVal)) {
+	if ((lowOp == GT && currLeaf->keyArray[i] > *(int*)lowVal) 
+		|| (lowOp == GTE && currLeaf->keyArray[i] >= *(int*)lowVal)) {
 	    startidx = i;
 	}
     }
@@ -850,19 +893,25 @@ int BTreeIndex::lowLeafHelper(LeafNodeInt * currLeaf, const void* lowVal, const 
  * Throws new NoSuchKeyFoundException in the case where we couldn't find and value </<= highVal
  */
 void BTreeIndex::scanLeafHelper(const void* highVal, const Operator highOp) {
+
+
+
+	// FIXME GRANT: highVal is a void*, can we just cast it to *(*int) and use it to compare?
+	// FIXME GRANT: That's what I'm doing to get it to compile...
+
     // check to make sure that at least one key is within range
-    LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> this->currentPageData;
-    if ((highOp == LT && currLeaf->keyArray[this->nextEntry] >= highVal)
-            || (highOp == LTE && currLeaf->keyArray[this->nextEntry] > highVal)) {
+    LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
+    if ((highOp == LT && currLeaf->keyArray[this->nextEntry] >= *(int*)highVal)
+            || (highOp == LTE && currLeaf->keyArray[this->nextEntry] > *(int*)highVal)) {
 	throw new NoSuchKeyFoundException;
     }
 
     bool inRange;
     do {
 	//cast everytime to ensure we use the right node if scanNext moves onto the next one
-	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> this->currentPageData;
-        if ((highOp == LT && currLeaf->keyArray[this->nextEntry] < highVal) 
-                || (highOp == LTE && currLeaf->keyArray[this->nextEntry] <= highVal)) {
+	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
+        if ((highOp == LT && currLeaf->keyArray[this->nextEntry] < *(int*)highVal) 
+                || (highOp == LTE && currLeaf->keyArray[this->nextEntry] <= *(int*)highVal)) {
             inRange = true;
             scanNext(currLeaf->ridArray[this->nextEntry]);
         }
