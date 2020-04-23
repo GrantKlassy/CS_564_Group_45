@@ -297,8 +297,13 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair<int> ridKey,
 
 			// Signal that we didn't split to calling function
 
-			// FIXME GRANT: We can't return null, we need to return a PageKeyPair<int>
-			return NULL;
+
+
+			// Return a PageKeyPair with 0
+			PageKeyPair<int> zeroRet;
+			zeroRet.key = 0;
+			zeroRet.pageNo = 0;
+			return zeroRet;
 		}
 	} 
 	////////////////////////////////////////////////////////////////////////////////////
@@ -342,11 +347,16 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair<int> ridKey,
 		path.pop();
 
 		/////////////////// NO SPLIT OCCURED ///////////////////////////////////////
-		if (splitInfo == NULL) {
+		if (splitInfo.pageNo == 0) {
 			// We didn't make any edits, not dirty, hence the false
 			// FIXME: Just set to dirty just in case?
 			this->bufMgr->unPinPage(this->file, myPage, false);	
-			return NULL;
+
+			// Return a PageKeyPair with 0
+			PageKeyPair<int> zeroRet;
+			zeroRet.key = 0;
+			zeroRet.pageNo = 0;
+			return zeroRet;
 		}
 
 		///////////////////// SPLIT OCCURED ////////////////////////////////////////
@@ -424,7 +434,12 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair<int> ridKey,
 			// Just insert and return NULL to say split didn't go up
 			insertNonLeafHelper( myNonLeaf, splitInfo, numEntries);
 			this->bufMgr->unPinPage(this->file, myPage, true);	
-			return NULL;
+
+			// Return a PageKeyPair with 0
+			PageKeyPair<int> zeroRet;
+			zeroRet.key = 0;
+			zeroRet.pageNo = 0;
+			return zeroRet;
 		}
 		
 
@@ -448,7 +463,7 @@ int BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt
 	right = newNonLeaf;
 
 	// We are going to need to NULL out some things
-	PageId nullPage = NULL;
+	PageId nullPage = 0;
 
 	// FIXME: THis should be leftmost entry on right side
 	int middleKey = myNonLeaf->keyArray[nodeOccupancy/2];
@@ -514,12 +529,12 @@ int BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt
 
 		// Clear left out
 		left->keyArray[i] = 0;
-		left->pageNoArray[i] = NULL;
+		left->pageNoArray[i] = 0;
 	}
 	// Clear back half of right
 	for (int i = indexToPlace; i < INTARRAYNONLEAFSIZE; i++) {
 		right->keyArray[i] = 0;
-		right->pageNoArray[i] = NULL;
+		right->pageNoArray[i] = 0;
 	}
 
 	// FIXME: Does this simplerway work?
@@ -830,8 +845,6 @@ void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, cons
         }
         else {
 
-		// FIXME GRANT: Casting lowVal which is a void* to a *(*int)
-		// FIXME GRANT: Is this ok? I hope so
 
             if ((lowOp == GT && currNode->keyArray[curridx] > *((int*)lowVal))
                     || (lowOp == GTE && currNode->keyArray[curridx] >= *((int*)lowVal))) {
