@@ -406,7 +406,7 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair<int> ridKey,
 				this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
 				myMetaInfo = (IndexMetaInfo*) myMetaPage;
 				myMetaInfo->rootLeaf = false;
-				myMetaInfo->rootPageNum = newRootPageNum;
+				myMetaInfo->rootPageNo = newRootPageNum;
 
 				this->bufMgr->unPinPage(this->file, this->headerPageNum, true);
 				this->bufMgr->unPinPage(this->file, newRootPageNum, true);	
@@ -510,7 +510,7 @@ int BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt
 	for (int i = halfway; i < INTARRAYNONLEAFSIZE; i++, indexToPlace++) {
 		// Copy them over
 		right->keyArray[indexToPlace] = left->keyArray[i];
-		right->ridArray[indexToPlace] = left->pageNoArray[i];
+		right->pageNoArray[indexToPlace] = left->pageNoArray[i];
 
 		// Clear left out
 		left->keyArray[i] = 0;
@@ -532,11 +532,11 @@ int BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt
 
 	// Insert left or right depending on what we determined above
 	if (insertLeftSide) {
-		int numLeft = ((Page *) left, insertMe.key, false);
-		insertNonLeafHelper(left, insertMe, numEntries);
+		int numLeft = getNumEntries((Page *) left, false);
+		insertNonLeafHelper(left, insertMe, numLeft);
 	} else {
-		int numRight = ((Page *) right, insertMe.key, false);
-		insertNonLeafHelper(right, insertMe, numEntries);
+		int numRight = getNumEntries((Page *) right, false);
+		insertNonLeafHelper(right, insertMe, numRight);
 	}
 	// MIGHT not want to return this, just find middle key after
 	// FIXME GRANT: What is middleKey? Not declared
@@ -765,7 +765,9 @@ const void BTreeIndex::startScan(const void* lowValParm,
 	throw new BadScanrangeException;
     }
     lowOp = lowOpParm;
-    highOp = highOpParm;	
+    highOp = highOpParm;
+    lowValInt = *(int*)lowValParm;
+    highValInt = *(int*)highValParm;
 
     // check if scan already in progress and if so, end it
     if (this->scanExecuting) {
@@ -815,14 +817,14 @@ const void BTreeIndex::startScan(const void* lowValParm,
 void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, const void* lowVal, const Operator lowOp) {
     int curridx = 0;
     bool smFound = false;
-    int numEntries = getNumEntries(currNode, false);
+    int numEntries = getNumEntries((Page*)currNode, false);
     while (!smFound) {
         if (curridx >= numEntries) {
 	    // save child pid and unpin curr page
 	    PageId childPid = currNode->pageNoArray[numEntries];
 	    bufMgr->unPinPage(file, currentPageNum, false);
             // reset currNode as right pid
-            bufMgr->readPage(this->file, childPid, currNode);
+            bufMgr->readPage(this->file, childPid, (Page*)currNode);
 	    this->currentPageNum = childPid;
             smFound = true;
         }
@@ -837,7 +839,7 @@ void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, cons
                 PageId childPid = currNode->pageNoArray[curridx];
                 bufMgr->unPinPage(file, currentPageNum, false);
                 // reset currNode as left pid
-                bufMgr->readPage(this->file, childPid, currNode);
+                bufMgr->readPage(this->file, childPid, (Page*)currNode);
 		this->currentPageNum = childPid;
                 smFound = true;
             }
@@ -871,7 +873,7 @@ int BTreeIndex::lowLeafHelper(LeafNodeInt * currLeaf, const void* lowVal, const 
 	// FIXME GRANT: That's what I'm doing to get it to compile...
 
     int startidx = -1;
-    int numEntries = getNumEntries(currLeaf, true);
+    int numEntries = getNumEntries((Page*)currLeaf, true);
     for (int i = numEntries-1; i >= 0; i--) {
 	if ((lowOp == GT && currLeaf->keyArray[i] > *(int*)lowVal) 
 		|| (lowOp == GTE && currLeaf->keyArray[i] >= *(int*)lowVal)) {
@@ -950,7 +952,7 @@ const void BTreeIndex::scanNext(RecordId& outRid)
   }
  
   int key = currentNode->keyArray[this->nextEntry];
-  if(keyCheck(*((int *)lowValParm), *((int *)highValParm), lowOp, highOp, key))
+  if(    keyCheck(lowValInt, highValInt, lowOp, highOp, key)    )
   {
     outRid = currentNode->ridArray[this->nextEntry];
     // Incrment nextEntry
