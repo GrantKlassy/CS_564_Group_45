@@ -47,8 +47,9 @@ namespace badgerdb
 		std::ostringstream idxStr;
 		idxStr << relationName << '.' << attrByteOffset;
 
-		// FIXME GRANT: Changing this, outIndexName is already a parameter?
+		// GRANT: Changing this, outIndexName is already a parameter?
 		//std::string outIndexName = idxStr.str(); // name of index file
+		outIndexName = idxStr.str(); // name of index file
 
 		this->bufMgr = bufMgrIn;
 		this->scanExecuting = false;
@@ -61,8 +62,8 @@ namespace badgerdb
 		this->rootLeaf = true;
 
 		// Things we have yet to set
-		// rootPageNum = -1 says we haven't started setting up stuff yet
-		this->rootPageNum = -1;
+		// rootPageNum = 0 says we haven't started setting up stuff yet
+		this->rootPageNum = 0;
 		this->currentPageNum = 0;
 		this->headerPageNum = 0;
 		this->file = NULL;
@@ -94,6 +95,7 @@ namespace badgerdb
 			FileScan fscan(relationName, this->bufMgr);
 			try {
 				RecordId scanRid;
+				int counter = 0;
 				while(1) {
 					fscan.scanNext(scanRid);
 					//Assuming RECORD.i is our key, lets extract the key, which we know is INTEGER and whose byte offset is also know inside the record.
@@ -110,11 +112,14 @@ namespace badgerdb
 					// We assume insert entry will handle root node setting
 					// Assume insert allocs additional necessary pages
 
-					// FIXME FIXME FIXME GRANT
+					// GRANT
+					// MIKE: I think I fixed this
 					// I think these are already being imported in main.cpp?
 					// If we insert here then we get a hash already found expcetion
 					// I am removing this to get it to work
-					//insertEntry(key, scanRid);
+					//printf("INSERTING ENTRY: %d\n", counter);
+					insertEntry(key, scanRid);
+					counter++;
 				}
 			}
 			catch(EndOfFileException e) {
@@ -164,8 +169,11 @@ namespace badgerdb
 
 		// If we don't have a root yet, let's make a root, update info
 		// FIXME GRANT: Unsigned vs signed int compare
-		if ((int)this->rootPageNum == -1) {
+		// MIKE: Changed so that 0 means that nothing is done //FIXME
+		//printf("On Insert\n");
+		if (this->rootPageNum == 0) {
 
+			printf("INSERTING ROOT\n");
 			Page * newNode;
 			PageId newPageNum;
 			bufMgr->allocPage(this->file, newPageNum, newNode);
@@ -207,7 +215,6 @@ namespace badgerdb
 
 		// initialized values
 		int myKey = ridKey.key;
-		RecordId myRid = ridKey.rid;
 		// Arguments we have
 		// PageId myPage
 		// std::stack<int> path
@@ -227,13 +234,15 @@ namespace badgerdb
 		bool checkLeaf1 = (path.size() != 0);
 		bool checkLeaf2 = false;
 		if (checkLeaf1) {
-			checkLeaf2 = (path.top() == 1);
+			checkLeaf2 = ((path.top() == 1) || (this->rootLeaf));
 		}
 
 		////////////////////////////////////////////////////////////////////////////////////
 		//////////////////////////////// LEAF SECTION //////////////////////////////////////
 		////////////////////////////////////////////////////////////////////////////////////
+		//printf("RIGHT BEFORE CHECKLEAF\n");
 		if (checkLeaf1 && checkLeaf2) {
+			//printf("IN CHECKLEAF\n");
 			// Our parent was right before a leaf, we must be a leaf
 			myLeaf = (LeafNodeInt *) myNode;
 
@@ -250,8 +259,9 @@ namespace badgerdb
 				LeafNodeInt* newLeaf;
 				this->bufMgr->allocPage(this->file, newPageNum, newPage);
 
-				// FIXME GRANT: Should this be newPage...?
-				newLeaf = (LeafNodeInt*) newLeaf;
+				// GRANT: Should this be newPage...?
+				// Should be fixed
+				newLeaf = (LeafNodeInt*) newPage;
 
 				// Split and insert new leaf
 				splitLeafAndInsert(myLeaf, newLeaf, ridKey, numEntries);
@@ -274,12 +284,46 @@ namespace badgerdb
 				int returnKey = rightLeaf->keyArray[0];
 				// The pageNo of the rightLeaf node we just made
 
-				// FIXME GRANT: returnPageNum is never used
-				//PageId returnPageNum = newPageNum;
-
+				PageId returnPageNum = newPageNum;
 				PageKeyPair<int> returnPair;
 				returnPair.key = returnKey;
-				returnPair.pageNo = newPageNum;
+				returnPair.pageNo = returnPageNum;
+
+				// If the node we are currently on is root
+				// TODO: Double check
+				if ( this->rootLeaf ) {
+
+					// We need to make new root node cuz we have nothing to return to?
+					PageId newRootPageNum;
+					Page * newRootPage;
+					bufMgr->allocPage( this->file, newRootPageNum, newRootPage);
+					NonLeafNodeInt * newRoot = (NonLeafNodeInt*) newRootPage;
+					for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
+						newRoot->keyArray[i] = 0;
+						newRoot->pageNoArray[i] = 0;
+					}
+					newRoot->level = myNonLeaf->level + 1;
+					newRoot->keyArray[0] = returnKey;
+
+					// Old page on left, new page on right
+					newRoot->pageNoArray[0] = myPage;
+					newRoot->pageNoArray[1] = newPageNum;
+
+					this->rootLeaf = false;
+					this->rootPageNum = newRootPageNum;
+
+					// Set meta info
+					Page* myMetaPage;
+					IndexMetaInfo* myMetaInfo;
+					this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
+					myMetaInfo = (IndexMetaInfo*) myMetaPage;
+					myMetaInfo->rootLeaf = false;
+					myMetaInfo->rootPageNo = newRootPageNum;
+
+					this->bufMgr->unPinPage(this->file, this->headerPageNum, true);
+					this->bufMgr->unPinPage(this->file, newRootPageNum, true);
+
+				}
 
 				// Unpin pages we were working on before returning
 				this->bufMgr->unPinPage(this->file, newPageNum, true);
@@ -292,12 +336,7 @@ namespace badgerdb
 			else {
 				// It's safe to just insert mykey in the leaf
 
-				// FIXME GRANT: This needs to be a RIDKeyPair, not a key
-				// FIXME GRANT: Here is the function def
-				//void insertLeafHelper(LeafNodeInt * myLeaf, RIDKeyPair<int> insertMe, int numEntries);
-
-				// \/ \/ \/ \/ FIX THIS
-				//insertLeafHelper(myLeaf, myKey, numEntries);
+				insertLeafHelper(myLeaf, ridKey, numEntries);
 
 				// Unpin pages we were working on
 				this->bufMgr->unPinPage(this->file, myPage, true);
@@ -322,7 +361,8 @@ namespace badgerdb
 			// Record we were just on this level
 			path.push(myNonLeaf->level);
 			// We want to recurse but first we need to know where to go
-			PageId nextPage = -1;
+			// FIXME: Again use 0 trick
+			PageId nextPage = 0;
 
 			// how many entries are in current non-leaf node
 			int numEntries = getNumEntries((Page *) myNonLeaf, false);
@@ -331,16 +371,13 @@ namespace badgerdb
 			// TODO: Double check correct page
 			for (int i = 0; i < numEntries; i++) {
 				// When we hit first time it's under key array, we have pageNo and break
-
-				// FIXME GRANT: "key" is never declared here. Should it be myKey?
 				if (myKey < myNonLeaf->keyArray[i]) {
 					nextPage = myNonLeaf->pageNoArray[i];
 					break;
 				}
 			}
 			// If we never found a number that was bigger, ours must be biggest
-			// FIXME GRANT: Unsigned vs signed int compare
-			if ((int)nextPage == -1) {
+			if (nextPage == 0) {
 				nextPage = myNonLeaf->pageNoArray[numEntries];
 			}
 
@@ -386,14 +423,10 @@ namespace badgerdb
 				// Get all of the stuff we need to return
 				// The pageNo of the rightLeaf node we just made
 
-
-				// FIXME GRANT: returnPageNum unused
-				//PageId returnPageNum = newPageNum;
-
-
+				PageId returnPageNum = newPageNum;
 				PageKeyPair<int> returnPair;
 				returnPair.key = returnKey;
-				returnPair.pageNo = newPageNum;
+				returnPair.pageNo = returnPageNum;
 
 				// If the node we are currently on is root
 				if (path.size() == 0) {
@@ -468,9 +501,6 @@ namespace badgerdb
 		// We are going to put all of the left stuff in myLeaf and right stuff in newLeaf
 		left = myNonLeaf;
 		right = newNonLeaf;
-
-		// We are going to need to NULL out some things
-		PageId nullPage = 0;
 
 		// FIXME: THis should be leftmost entry on right side
 		int middleKey = myNonLeaf->keyArray[nodeOccupancy/2];
@@ -561,7 +591,6 @@ namespace badgerdb
 			insertNonLeafHelper(right, insertMe, numRight);
 		}
 		// MIGHT not want to return this, just find middle key after
-		// FIXME GRANT: What is middleKey? Not declared
 		return middleKey;
 	}
 
