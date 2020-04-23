@@ -823,8 +823,12 @@ void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, cons
             smFound = true;
         }
         else {
-            if ((lowOp == GT && currNode->keyArray[curridx] > lowVal)
-                    || (lowOp == GTE && currNode->keyArray[curridx] >= lowVal)) {
+
+		// FIXME GRANT: Casting lowVal which is a void* to a *(*int)
+		// FIXME GRANT: Is this ok? I hope so
+
+            if ((lowOp == GT && currNode->keyArray[curridx] > *((int*)lowVal))
+                    || (lowOp == GTE && currNode->keyArray[curridx] >= *((int*)lowVal))) {
 		// save child pid and unpin curr page
                 PageId childPid = currNode->pageNoArray[curridx];
                 bufMgr->unPinPage(file, currentPageNum, false);
@@ -858,11 +862,15 @@ void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, cons
  * Throws new NoSuchKeyFoundException in the case where we couldn't find and value >/>= lowVal
  */
 int BTreeIndex::lowLeafHelper(LeafNodeInt * currLeaf, const void* lowVal, const Operator lowOp) {
+
+	// FIXME GRANT: lowVal is a void*, can we just cast it to *(*int) and use it to compare?
+	// FIXME GRANT: That's what I'm doing to get it to compile...
+
     int startidx = -1;
     int numEntries = getNumEntries(currLeaf, true);
     for (int i = numEntries-1; i >= 0; i--) {
-	if ((lowOp == GT && currLeaf->keyArray[i] > lowVal) 
-		|| (lowOp == GTE && currLeaf->keyArray[i] >= lowVal)) {
+	if ((lowOp == GT && currLeaf->keyArray[i] > *(int*)lowVal) 
+		|| (lowOp == GTE && currLeaf->keyArray[i] >= *(int*)lowVal)) {
 	    startidx = i;
 	}
     }
@@ -881,10 +889,16 @@ int BTreeIndex::lowLeafHelper(LeafNodeInt * currLeaf, const void* lowVal, const 
  * Throws new NoSuchKeyFoundException in the case where we couldn't find and value </<= highVal
  */
 void BTreeIndex::scanLeafHelper(const void* highVal, const Operator highOp) {
+
+
+
+	// FIXME GRANT: highVal is a void*, can we just cast it to *(*int) and use it to compare?
+	// FIXME GRANT: That's what I'm doing to get it to compile...
+
     // check to make sure that at least one key is within range
     LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
-    if ((highOp == LT && currLeaf->keyArray[this->nextEntry] >= highVal)
-            || (highOp == LTE && currLeaf->keyArray[this->nextEntry] > highVal)) {
+    if ((highOp == LT && currLeaf->keyArray[this->nextEntry] >= *(int*)highVal)
+            || (highOp == LTE && currLeaf->keyArray[this->nextEntry] > *(int*)highVal)) {
 	throw new NoSuchKeyFoundException;
     }
 
@@ -892,8 +906,8 @@ void BTreeIndex::scanLeafHelper(const void* highVal, const Operator highOp) {
     do {
 	//cast everytime to ensure we use the right node if scanNext moves onto the next one
 	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
-        if ((highOp == LT && currLeaf->keyArray[this->nextEntry] < highVal) 
-                || (highOp == LTE && currLeaf->keyArray[this->nextEntry] <= highVal)) {
+        if ((highOp == LT && currLeaf->keyArray[this->nextEntry] < *(int*)highVal) 
+                || (highOp == LTE && currLeaf->keyArray[this->nextEntry] <= *(int*)highVal)) {
             inRange = true;
             scanNext(currLeaf->ridArray[this->nextEntry]);
         }
