@@ -772,10 +772,10 @@ const void BTreeIndex::startScan(const void* lowValParm,
     bufMgr->readPage(this->file, rootPageNum, this->currentPageData);
 
     if (this->rootLeaf) {
-	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> this->currentPageData;
+	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
 	this->nextEntry = lowLeafHelper(currLeaf, lowValParm, lowOpParm);	
 	
-	this->currentPageData = reinterpret_cast<Page*> currLeaf;
+	this->currentPageData = reinterpret_cast<Page*>(currLeaf);
         scanLeafHelper(highValParm, highOpParm);
     }
     else {
@@ -784,7 +784,7 @@ const void BTreeIndex::startScan(const void* lowValParm,
 	// all records from it are read or the scan has reached its end".  That makes it sound
 	// like in scanNext we bring it into the buffer pool and pin it.
 
-	NonLeafNodeInt *currNode = reinterpret_cast<NonLeafNodeInt*> this->currentPageData;
+	NonLeafNodeInt *currNode = reinterpret_cast<NonLeafNodeInt*>(this->currentPageData);
 	
 	// if the next level from root is the leaf level, call with bool nextLeaf = true, otherwise false
 	if (currNode->level != 1) {
@@ -795,11 +795,11 @@ const void BTreeIndex::startScan(const void* lowValParm,
 	}
 	
 	// we should return with currNode --> first leaf node in range, so cast to leaf struct
-	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> currNode;	
+	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(currNode);	
 	this->nextEntry = lowLeafHelper(currLeaf, lowValParm, lowOpParm);
 
 	// recast currLeaf to Page* and store in currentPageData to save as global data
-	this->currentPageData = reinterpret_cast<Page*> currLeaf;
+	this->currentPageData = reinterpret_cast<Page*>(currLeaf);
 	scanLeafHelper(highValParm, highOpParm);
     }
     endScan();
@@ -882,7 +882,7 @@ int BTreeIndex::lowLeafHelper(LeafNodeInt * currLeaf, const void* lowVal, const 
  */
 void BTreeIndex::scanLeafHelper(const void* highVal, const Operator highOp) {
     // check to make sure that at least one key is within range
-    LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> this->currentPageData;
+    LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
     if ((highOp == LT && currLeaf->keyArray[this->nextEntry] >= highVal)
             || (highOp == LTE && currLeaf->keyArray[this->nextEntry] > highVal)) {
 	throw new NoSuchKeyFoundException;
@@ -891,7 +891,7 @@ void BTreeIndex::scanLeafHelper(const void* highVal, const Operator highOp) {
     bool inRange;
     do {
 	//cast everytime to ensure we use the right node if scanNext moves onto the next one
-	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*> this->currentPageData;
+	LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
         if ((highOp == LT && currLeaf->keyArray[this->nextEntry] < highVal) 
                 || (highOp == LTE && currLeaf->keyArray[this->nextEntry] <= highVal)) {
             inRange = true;
