@@ -391,6 +391,12 @@ namespace badgerdb
 			PageKeyPair<int> insertHelper(PageId myPage, RIDKeyPair<int> ridKey, std::stack<int> &path);
 			int getNumEntries(Page * myNode, bool isLeaf);
 			void splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf, RIDKeyPair<int> insertMe, int numEntries);
+			int splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt * newNonLeaf, PageKeyPair<int> insertMe, int numEntries);
+			void insertNonLeafHelper(NonLeafNodeInt * myNonLeaf, PageKeyPair<int> insertMe, int numEntries);
+			const bool keyCheck(int lowVal, int highVal, const Operator lowOp, const Operator highOp, int key);
+			void scanLeafHelper(const void* highVal, const Operator highOp);
+			int lowLeafHelper(LeafNodeInt * currLeaf, const void* lowVal, const Operator lowOp);
+			void findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, const void* lowVal, const Operator lowOp);
 
 
 	};

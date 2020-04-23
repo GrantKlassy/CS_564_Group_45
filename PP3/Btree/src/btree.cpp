@@ -158,6 +158,7 @@ const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 		ridKeyCombo.set(rid, *(keyToInsert));
 
 	// If we don't have a root yet, let's make a root, update info
+	// FIXME GRANT: Unsigned vs signed int compare
 	if ((int)this->rootPageNum == -1) {
 
 		Page * newNode;
@@ -324,7 +325,8 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair<int> ridKey,
 			}
 		}
 		// If we never found a number that was bigger, ours must be biggest
-		if (nextPage == -1) {
+		// FIXME GRANT: Unsigned vs signed int compare
+		if ((int)nextPage == -1) {
 			nextPage = myNonLeaf->pageNoArray[numEntries];
 		}
 		
@@ -364,7 +366,12 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair<int> ridKey,
 			int returnKey = splitNonLeafAndInsert(myNonLeaf, newNonLeaf, splitInfo, numEntries);
 			// Get all of the stuff we need to return
 			// The pageNo of the rightLeaf node we just made
-			PageId returnPageNum = newPageNum;
+
+
+			// FIXME GRANT: returnPageNum unused
+			//PageId returnPageNum = newPageNum;
+
+
 			PageKeyPair<int> returnPair;
 			returnPair.key = returnKey;
 			returnPair.pageNo = newPageNum;
@@ -428,7 +435,7 @@ PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair<int> ridKey,
 // right side -> newLeaf
 // FIXME: I'm concerned that the splitting functions will do bad things.  We should check
 // these thoroughly
-Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt * newNonLeaf, PageKeyPair<int> insertMe, int numEntries) {
+int BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt * newNonLeaf, PageKeyPair<int> insertMe, int numEntries) {
 
 	// To make things more readable let's essentially rename some things
 	NonLeafNodeInt * left;
@@ -441,7 +448,7 @@ Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt
 	// We are going to need to NULL out some things
 	PageId nullPage = NULL;
 
-	Key middleKey = myNonLeaf->keyArray[nodeOccupancy/2];
+	int middleKey = myNonLeaf->keyArray[nodeOccupancy/2];
 
 	/*
 	// grabbed
@@ -528,6 +535,8 @@ Key BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt
 		int numRight = ((Page *) right, insertMe.key, false);
 		insertNonLeafHelper(right, insertMe, numEntries);
 	}
+
+	// FIXME GRANT: What is middleKey? Not declared
 	return middleKey;
 }
 
@@ -616,11 +625,11 @@ void BTreeIndex::splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf,
 
 	// Insert left or right depending on what we determined above
 	if (insertLeftSide) {
-		int numLeft = getNumEntries((Page *) leftLeaf, insertMe.key, true);
+		int numLeft = getNumEntries((Page *) leftLeaf, true);
 		insertLeafHelper(leftLeaf, insertMe, numLeft);
 	} else {
-		int numRight = getNumEntries((Page *) rightLeaf, insertMe.key, true);
-		insertLeafHelper(rightLeaf, insertMe, numLeft);
+		int numRight = getNumEntries((Page *) rightLeaf, true);
+		insertLeafHelper(rightLeaf, insertMe, numRight);
 	}
 
 }
@@ -645,7 +654,7 @@ int BTreeIndex::getNumEntries(Page * myNode, bool isLeaf) {
 
 	for (int i = 0; i < max; i++) {
 		if (isLeaf) {
-			myRid = ( (leafNodeInt *) myNode )->ridArray[i];
+			myRid = ( (LeafNodeInt *) myNode )->ridArray[i];
 			// FIXME: Will this error out when I hit end
 			// FIXME: Assumes when we go too far things are zeroed out
 			// We know page_number 0 is metadata so that should be safe
@@ -723,17 +732,17 @@ void BTreeIndex::insertNonLeafHelper(NonLeafNodeInt * myNonLeaf, PageKeyPair<int
 			// THIS WILL SEGFAULT IF CALLED ON FULL ARRAY
 			// From last entry -> where we are, shift, data up 1
 			for (int j = numEntries - 1; j > i - 1; j--) {
-				myLeaf->keyArray[j+1] = myLeaf->keyArray[j];
-				myLeaf->pageNoArray[j+2] = myLeaf->pageNoArray[j+1];
+				myNonLeaf->keyArray[j+1] = myNonLeaf->keyArray[j];
+				myNonLeaf->pageNoArray[j+2] = myNonLeaf->pageNoArray[j+1];
 			}
-			myLeaf->keyArray[i] = insertMe.key;
-			myLeaf->pageNoArray[i+1] = insertMe.pageNo;
+			myNonLeaf->keyArray[i] = insertMe.key;
+			myNonLeaf->pageNoArray[i+1] = insertMe.pageNo;
 			return;
 		}
 	}
 	// If we make it all the way until the end, just put it at end
-	myLeaf->keyArray[numEntries] = insertMe.key;
-	myLeaf->pageNoArray[numEntries+1] = insertMe.pageNo;
+	myNonLeaf->keyArray[numEntries] = insertMe.key;
+	myNonLeaf->pageNoArray[numEntries+1] = insertMe.pageNo;
 }
 
 // -----------------------------------------------------------------------------
