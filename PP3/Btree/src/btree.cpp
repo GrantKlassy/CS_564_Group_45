@@ -118,7 +118,7 @@ namespace badgerdb
 					// I think these are already being imported in main.cpp?
 					// If we insert here then we get a hash already found expcetion
 					// I am removing this to get it to work
-					//printf("INSERTING ENTRY: %d\n", counter);
+					//printf("INSERTING ENTRY NUM: %d WITH KEY %d\n", counter, *key);
 					insertEntry(key, scanRid);
 					counter++;
 				}
@@ -169,7 +169,7 @@ namespace badgerdb
 		ridKeyCombo.set(rid, *(keyToInsert));
 
 		// If we don't have a root yet, let's make a root, update info
-		// FIXME GRANT: Unsigned vs signed int compare
+		// GRANT: Unsigned vs signed int compare
 		// MIKE: Changed so that 0 means that nothing is done //FIXME
 		//printf("On Insert\n");
 		if (this->rootPageNum == 0) {
@@ -257,17 +257,25 @@ namespace badgerdb
 				printf("SPLITTING LEAF\n");
 
 				// Alloc new leaf
-				PageId newPageNum;
+				PageId newPageNum = 0;
 				Page * newPage;
 				LeafNodeInt* newLeaf;
+				printf("BEFORE ALLOC: new page num: %u\n", newPageNum);
+				//printf("Trying to insert key: %d\n", myKey);
+			//	printLeaf(myLeaf);
 				this->bufMgr->allocPage(this->file, newPageNum, newPage);
+				printf("AFTER ALLOC: new page num: %u\n", newPageNum);
 
 				// GRANT: Should this be newPage...?
 				// Should be fixed
 				newLeaf = (LeafNodeInt*) newPage;
 
+				printf("numEntries is %d\n", numEntries);
+
 				// Split and insert new leaf
 				splitLeafAndInsert(myLeaf, newLeaf, ridKey, numEntries);
+
+				printf("THROUGH SPLIT AND INSERT\n");
 
 				// Improve readability
 				LeafNodeInt* leftLeaf;
@@ -298,6 +306,7 @@ namespace badgerdb
 				// TODO: Double check
 				if ( this->rootLeaf ) {
 
+					printf("IN ROOTLEAF SPLIT\n");
 					// We need to make new root node cuz we have nothing to return to?
 					PageId newRootPageNum;
 					Page * newRootPage;
@@ -417,6 +426,7 @@ namespace badgerdb
 			// TODO: Check this is right number, it or leaf one might be off by one
 			if (numEntries == INTARRAYNONLEAFSIZE) {
 
+				printf("SPLITTING NONLEAF\n");
 				// Alloc new non-Leaf
 				PageId newPageNum;
 				Page * newPage;
@@ -616,7 +626,7 @@ namespace badgerdb
 		RecordId nullRecord;
 		nullRecord.page_number = 0;
 
-
+		/*
 		// grabbed
 		// Go through and find place to insert it
 		int testKey;
@@ -664,7 +674,9 @@ namespace badgerdb
 			}
 			halfway = (INTARRAYLEAFSIZE / 2);
 		}
+		*/
 
+		int halfway = INTARRAYLEAFSIZE/2 + 1;
 
 		// Iterate indextoplace as we copy over right half
 		int indexToPlace = 0;
@@ -683,6 +695,8 @@ namespace badgerdb
 			rightLeaf->ridArray[i] = nullRecord;
 		}
 
+		bool insertLeftSide = (insertMe.key < rightLeaf->keyArray[0]);
+
 		// Insert left or right depending on what we determined above
 		if (insertLeftSide) {
 			int numLeft = getNumEntries((Page *) leftLeaf, true);
@@ -692,6 +706,12 @@ namespace badgerdb
 			insertLeafHelper(rightLeaf, insertMe, numRight);
 		}
 
+	}
+
+	void BTreeIndex::printLeaf(LeafNodeInt * myLeaf) {
+		for (int i = 0; i < INTARRAYLEAFSIZE; i++) {
+			printf("Key at index: %d = %d\n", i, myLeaf->keyArray[i]);
+		}
 	}
 
 	// TODO: @Carley Use this method in findLeavesHelper to determine maxIndex you can go to safely
