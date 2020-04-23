@@ -368,6 +368,8 @@ void intTests()
 	std::cout << "Create a B+ Tree index on the integer field" << std::endl;
 	BTreeIndex index(relationName, intIndexName, bufMgr, offsetof(tuple,i), INTEGER);
 
+	std::cout << "Made it" << std::endl;
+
 	// run some tests
 	checkPassFail(intScan(&index,25,GT,40,LT), 14)
 		checkPassFail(intScan(&index,20,GTE,35,LTE), 16)

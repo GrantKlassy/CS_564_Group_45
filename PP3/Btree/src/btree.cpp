@@ -109,7 +109,12 @@ namespace badgerdb
 					// Call insert on each entry?
 					// We assume insert entry will handle root node setting
 					// Assume insert allocs additional necessary pages
-					insertEntry(key, scanRid);
+
+					// FIXME FIXME FIXME GRANT
+					// I think these are already being imported in main.cpp?
+					// If we insert here then we get a hash already found expcetion
+					// I am removing this to get it to work
+					//insertEntry(key, scanRid);
 				}
 			}
 			catch(EndOfFileException e) {
@@ -778,7 +783,7 @@ namespace badgerdb
 		if ((lowOpParm != GT && lowOpParm != GTE) || (highOpParm != LT && highOpParm != LTE)) {
 			throw new BadOpcodesException;
 		}
-		if (lowValParm > highValParm) {
+		if (*(int*)lowValParm > *(int*)highValParm) {
 			throw new BadScanrangeException;
 		}
 		lowOp = lowOpParm;
@@ -888,11 +893,13 @@ namespace badgerdb
 	 */
 	int BTreeIndex::lowLeafHelper(LeafNodeInt * currLeaf, const void* lowVal, const Operator lowOp) {
 
-		// FIXME GRANT: lowVal is a void*, can we just cast it to *(*int) and use it to compare?
-		// FIXME GRANT: That's what I'm doing to get it to compile...
 
 		int startidx = -1;
 		int numEntries = getNumEntries((Page*)currLeaf, true);
+
+		// FIXME GRANT: Why is numEntries 0 here?
+		std::cout << "Num entries: " << numEntries << std::endl;
+
 		for (int i = numEntries-1; i >= 0; i--) {
 			if ((lowOp == GT && currLeaf->keyArray[i] > *(int*)lowVal)
 					|| (lowOp == GTE && currLeaf->keyArray[i] >= *(int*)lowVal)) {
