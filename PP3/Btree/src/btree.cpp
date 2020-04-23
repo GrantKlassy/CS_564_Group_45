@@ -84,7 +84,8 @@ namespace badgerdb
 			myMetaInfo->attrType = this->attributeType;
 			myMetaInfo->attrByteOffset = this->attrByteOffset;
 			// We again assume insert takes care of this
-			myMetaInfo->rootPageNo = -1;
+			// FIXME: Assume 0 again
+			myMetaInfo->rootPageNo = 0;
 			myMetaInfo->rootLeaf = true;
 
 			// unpin header
@@ -95,7 +96,7 @@ namespace badgerdb
 			FileScan fscan(relationName, this->bufMgr);
 			try {
 				RecordId scanRid;
-				int counter = 0;
+				int counter = 1;
 				while(1) {
 					fscan.scanNext(scanRid);
 					//Assuming RECORD.i is our key, lets extract the key, which we know is INTEGER and whose byte offset is also know inside the record.
@@ -253,6 +254,8 @@ namespace badgerdb
 			// If we are at max capacity
 			if (numEntries == INTARRAYLEAFSIZE ) {
 
+				printf("SPLITTING LEAF\n");
+
 				// Alloc new leaf
 				PageId newPageNum;
 				Page * newPage;
@@ -289,6 +292,8 @@ namespace badgerdb
 				returnPair.key = returnKey;
 				returnPair.pageNo = returnPageNum;
 
+				printf("makes to rootleaf\n");
+
 				// If the node we are currently on is root
 				// TODO: Double check
 				if ( this->rootLeaf ) {
@@ -302,7 +307,7 @@ namespace badgerdb
 						newRoot->keyArray[i] = 0;
 						newRoot->pageNoArray[i] = 0;
 					}
-					newRoot->level = myNonLeaf->level + 1;
+					newRoot->level = 1;
 					newRoot->keyArray[0] = returnKey;
 
 					// Old page on left, new page on right
@@ -343,7 +348,7 @@ namespace badgerdb
 
 				// Signal that we didn't split to calling function
 
-
+				//printf("not splitting leaf\n");
 
 				// Return a PageKeyPair with 0
 				PageKeyPair<int> zeroRet;
