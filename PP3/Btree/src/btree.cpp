@@ -124,7 +124,7 @@ namespace badgerdb
 					// I think these are already being imported in main.cpp?
 					// If we insert here then we get a hash already found expcetion
 					// I am removing this to get it to work
-					//printf("INSERTING ENTRY NUM: %d WITH KEY %d\n", counter, *key);
+					printf("INSERTING ENTRY NUM: %d WITH KEY %d\n", counter, *key);
 					insertEntry(key, scanRid);
 					counter++;
 				}
@@ -276,7 +276,7 @@ namespace badgerdb
 			///////////////////// SPLIT LEAF ////////////////////////////////////////
 			// TODO: If this->rootLeaf is true, we need to handle root stuff
 			// If we are at max capacity
-			if (numEntries == INTARRAYLEAFSIZE ) {
+			if (numEntries == INTARRAYLEAFSIZE - 1 ) {
 
 				printf("SPLITTING LEAF\n");
 
