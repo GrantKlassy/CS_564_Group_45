@@ -43,6 +43,8 @@ namespace badgerdb
 			const int attrByteOffset,
 			const Datatype attrType)
 	{
+		printf("IN CONSTRUCTOR\n");
+
 		//Taken from spec: How to get name of index file
 		std::ostringstream idxStr;
 		idxStr << relationName << '.' << attrByteOffset;
@@ -74,6 +76,8 @@ namespace badgerdb
 		// Find out if the file exists
 		if (!(File::exists(outIndexName))) {
 			this->file = new BlobFile(outIndexName, true);
+
+			printf("FILE DOESN'T EXIST YET\n");
 
 			// Before looking through and adding things, lets alloc metadata at page 0
 			bufMgr->allocPage(this->file, this->headerPageNum, myMetaPage);
@@ -163,6 +167,8 @@ namespace badgerdb
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	{
+		printf("IN INSERT\n");
+
 		int * keyToInsert;
 		keyToInsert = (int*) (key);
 		RIDKeyPair<int> ridKeyCombo;
@@ -221,6 +227,13 @@ namespace badgerdb
 	// Return value is the page, key pair that needs to be added if splitting occured
 	// Recursive Helper function which handles insertions, balancing of b tree
 	PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair<int> ridKey, std::stack<int> &path) {
+
+		// printf("BEFORE TEST ALLOC\n");
+		// PageId testPageNo = 0;
+                // Page * testPage;
+                // this->bufMgr->allocPage(this->file, testPageNo, testPage);
+                // printf("AFTER ALLOC: test page num: %u\n", testPageNo);
+		// this->bufMgr->unPinPage(this->file, testPageNo, false);
 
 		// initialized values
 		int myKey = ridKey.key;
