@@ -231,13 +231,6 @@ namespace badgerdb
 	// Recursive Helper function which handles insertions, balancing of b tree
 	PageKeyPair<int> BTreeIndex::insertHelper(PageId myPage, RIDKeyPair<int> ridKey, std::stack<int> &path) {
 
-		 printf("BEFORE TEST ALLOC\n");
-		 PageId testPageNo = 0;
-                 Page * testPage;
-                 this->bufMgr->allocPage(this->file, testPageNo, testPage);
-                 printf("AFTER TEST ALLOC: test page num: %u\n", testPageNo);
-		 this->bufMgr->unPinPage(this->file, testPageNo, true);
-
 		// initialized values
 		int myKey = ridKey.key;
 		// Arguments we have
@@ -266,7 +259,7 @@ namespace badgerdb
 		//////////////////////////////// LEAF SECTION //////////////////////////////////////
 		////////////////////////////////////////////////////////////////////////////////////
 		//printf("RIGHT BEFORE CHECKLEAF\n");
-		if (checkLeaf1 && checkLeaf2) {
+		if ( (checkLeaf1 && checkLeaf2) || this->rootLeaf) {
 			//printf("IN CHECKLEAF\n");
 			// Our parent was right before a leaf, we must be a leaf
 			myLeaf = (LeafNodeInt *) myNode;
