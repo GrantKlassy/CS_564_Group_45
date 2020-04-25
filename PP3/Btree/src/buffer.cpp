@@ -122,7 +122,7 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
 
 
   // check to see if it is already in the buffer pool
-   std::cout << "readPage called on file.page " << file << "." << pageNo << std::endl;
+  //std::cout << "readPage called on file.page " << file << "." << pageNo << std::endl;
   FrameId frameNo = 0;
 	try
 	{

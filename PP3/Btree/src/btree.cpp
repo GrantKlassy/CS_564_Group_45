@@ -124,7 +124,7 @@ namespace badgerdb
 					// I think these are already being imported in main.cpp?
 					// If we insert here then we get a hash already found expcetion
 					// I am removing this to get it to work
-					printf("INSERTING ENTRY NUM: %d WITH KEY %d\n", counter, *key);
+					//printf("INSERTING ENTRY NUM: %d WITH KEY %d\n", counter, *key);
 					insertEntry(key, scanRid);
 					counter++;
 				}
@@ -271,28 +271,28 @@ namespace badgerdb
 			// If we are at max capacity
 			if (numEntries == INTARRAYLEAFSIZE - 1 ) {
 
-				printf("SPLITTING LEAF\n");
+				//printf("SPLITTING LEAF\n");
 
 				// Alloc new leaf
 				PageId newPageNum = 0;
 				Page * newPage;
 				LeafNodeInt* newLeaf;
-				printf("BEFORE ALLOC: new page num: %u\n", newPageNum);
+				//printf("BEFORE ALLOC: new page num: %u\n", newPageNum);
 				//printf("Trying to insert key: %d\n", myKey);
 			//	printLeaf(myLeaf);
 				this->bufMgr->allocPage(this->file, newPageNum, newPage);
-				printf("AFTER ALLOC: new page num: %u\n", newPageNum);
+				//printf("AFTER ALLOC: new page num: %u\n", newPageNum);
 
 				// GRANT: Should this be newPage...?
 				// Should be fixed
 				newLeaf = (LeafNodeInt*) newPage;
 
-				printf("numEntries is %d\n", numEntries);
+				//printf("numEntries is %d\n", numEntries);
 
 				// Split and insert new leaf
 				splitLeafAndInsert(myLeaf, newLeaf, ridKey, numEntries);
 
-				printf("THROUGH SPLIT AND INSERT\n");
+				//printf("THROUGH SPLIT AND INSERT\n");
 
 				// Improve readability
 				LeafNodeInt* leftLeaf;
@@ -317,7 +317,7 @@ namespace badgerdb
 				returnPair.key = returnKey;
 				returnPair.pageNo = returnPageNum;
 
-				printf("makes to rootleaf\n");
+				//printf("makes to rootleaf\n");
 
 				// If the node we are currently on is root
 				// TODO: Double check
@@ -1034,6 +1034,11 @@ namespace badgerdb
 		{
 			throw ScanNotInitializedException();
 		}
+
+		if (this->nextEntry == -1) {
+			throw IndexScanCompletedException();
+		}
+
 		// Casting page to node
 		LeafNodeInt* currentNode = (LeafNodeInt *) currentPageData;
 		if(currentNode->ridArray[nextEntry].page_number == 0 or this->nextEntry == this->leafOccupancy)
@@ -1090,8 +1095,9 @@ namespace badgerdb
 	//
 	const void BTreeIndex::endScan()
 	{
-		if(!this->scanExecuting)
+		if(!this->scanExecuting) {
 			throw new ScanNotInitializedException();
+		}
 		this->scanExecuting = false;
 		// Unpin page
 		bufMgr->unPinPage(file, currentPageNum, false);
