@@ -292,24 +292,17 @@ class BTreeIndex {
 	Operator	highOp;
 
   /**
-  * extra variable for when the root hasn't been split
+  * extra variable to store the PageId of the root when it has not been split
   */
   PageId rootInitNum;
 
   
-  const void insertHelper(Page *currentPage, PageId numPage, bool leafFlag, const RIDKeyPair<int> entry, PageKeyPair<int> *&newEntry);
-  
+  const void insertHelper(PageKeyPair<int> *&newEntry, Page *currentPage, PageId numPage, const RIDKeyPair<int> entry, bool leafFlag);
+  const void insertIndexEntryToFile(PageKeyPair<int> *&newEntry, NonLeafNodeInt *leftNode, PageId leftPageNum);
+  const void rootUpdateHelper(PageKeyPair<int> *newEntry, PageId rootPointer); 
+  const void splitFullLeafNode(PageKeyPair<int> *&newEntry, LeafNodeInt *leafNode, const RIDKeyPair<int> entry, PageId numPage);
+  const bool checkKey(int val, int lowVal, int highVal, const Operator lowOp, const Operator highOp); 
 
-
-  const void insertIndexEntryToFile(NonLeafNodeInt *leftNode, PageId leftPageNum, PageKeyPair<int> *&newEntry);
-  
-
-  const void rootUpdateHelper(PageId rootPointer, PageKeyPair<int> *newEntry);
- 
-  const void splitFullLeafNode(LeafNodeInt *leafNode, PageId numPage, PageKeyPair<int> *&newEntry, const RIDKeyPair<int> entry);
- 
-
-  const bool checkKey(int lowVal, int highVal, const Operator lowOp, const Operator highOp, int key); 
  public:
 
   /**
