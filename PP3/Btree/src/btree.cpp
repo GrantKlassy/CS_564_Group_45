@@ -764,7 +764,7 @@ namespace badgerdb
 				}
 			}
 			else {
-				myPid = ( (NonLeafNodeInt *) myNode )->pageNoArray[i];
+				myPid = ( (NonLeafNodeInt *) myNode )->pageNoArray[i+1];
 				// FIXME: Assume zeroed out again
 				if (myPid == 0) {
 					return i;
