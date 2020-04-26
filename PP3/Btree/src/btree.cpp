@@ -49,8 +49,6 @@ namespace badgerdb
 		std::ostringstream idxStr;
 		idxStr << relationName << '.' << attrByteOffset;
 
-		// GRANT: Changing this, outIndexName is already a parameter?
-		//std::string outIndexName = idxStr.str(); // name of index file
 		outIndexName = idxStr.str(); // name of index file
 
 		this->bufMgr = bufMgrIn;
@@ -90,7 +88,6 @@ namespace badgerdb
 			myMetaInfo->attrType = this->attributeType;
 			myMetaInfo->attrByteOffset = this->attrByteOffset;
 			// We again assume insert takes care of this
-			// FIXME: Assume 0 again
 			myMetaInfo->rootPageNo = 0;
 			myMetaInfo->rootLeaf = true;
 
@@ -113,24 +110,13 @@ namespace badgerdb
 					int * key = ((int *)(record + offsetof (RECORD, i)));
 
 					//std::cout << "Extracted : " << key << std::endl;
-
-					// Added by mike
-					// Call insert on each entry?
-					// We assume insert entry will handle root node setting
-					// Assume insert allocs additional necessary pages
-
-					// GRANT
-					// MIKE: I think I fixed this
-					// I think these are already being imported in main.cpp?
-					// If we insert here then we get a hash already found expcetion
-					// I am removing this to get it to work
 					//printf("INSERTING ENTRY NUM: %d WITH KEY %d\n", counter, *key);
 					insertEntry(key, scanRid);
 					counter++;
 				}
 			}
 			catch(EndOfFileException e) {
-				//std::cout << "Read all records" << std::endl;
+				// Do nothing if EOF
 			}
 		} else {
 			// open file
@@ -185,8 +171,6 @@ namespace badgerdb
 		//	std::cout << myMetaInfo->rootPageNo << std::endl;
 
 		// If we don't have a root yet, let's make a root, update info
-		// GRANT: Unsigned vs signed int compare
-		// MIKE: Changed so that 0 means that nothing is done //FIXME
 		//printf("On Insert\n");
 		if (this->rootPageNum == 0) {
 
@@ -248,7 +232,6 @@ namespace badgerdb
 
 		// If both checkLeaf1 and 2 are true, we are a leaf
 		// Not sure if I'll get NULL pointer if I call top on an empty one so called this way
-		// TODO: What if root is a leaf
 		bool checkLeaf1 = (path.size() != 0);
 		bool checkLeaf2 = false;
 		if (checkLeaf1) {
@@ -267,7 +250,6 @@ namespace badgerdb
 			int numEntries = getNumEntries((Page *) myLeaf, true);
 
 			///////////////////// SPLIT LEAF ////////////////////////////////////////
-			// TODO: If this->rootLeaf is true, we need to handle root stuff
 			// If we are at max capacity
 			if (numEntries == INTARRAYLEAFSIZE - 1 ) {
 
@@ -283,8 +265,6 @@ namespace badgerdb
 				this->bufMgr->allocPage(this->file, newPageNum, newPage);
 				//printf("AFTER ALLOC: new page num: %u\n", newPageNum);
 
-				// GRANT: Should this be newPage...?
-				// Should be fixed
 				newLeaf = (LeafNodeInt*) newPage;
 
 				//printf("numEntries is %d\n", numEntries);
@@ -320,7 +300,6 @@ namespace badgerdb
 				//printf("makes to rootleaf\n");
 
 				// If the node we are currently on is root
-				// TODO: Double check
 				if ( this->rootLeaf ) {
 
 					//printf("IN ROOTLEAF SPLIT\n");
@@ -393,7 +372,6 @@ namespace badgerdb
 			// Record we were just on this level
 			path.push(myNonLeaf->level);
 			// We want to recurse but first we need to know where to go
-			// FIXME: Again use 0 trick
 			PageId nextPage = 0;
 
 			// how many entries are in current non-leaf node
@@ -425,7 +403,6 @@ namespace badgerdb
 			/////////////////// NO SPLIT OCCURED ///////////////////////////////////////
 			if (splitInfo.pageNo == 0) {
 				// We didn't make any edits, not dirty, hence the false
-				// FIXME: Just set to dirty just in case?
 				this->bufMgr->unPinPage(this->file, myPage, false);
 
 				// Return a PageKeyPair with 0
@@ -437,8 +414,6 @@ namespace badgerdb
 
 			///////////////////// SPLIT OCCURED ////////////////////////////////////////
 
-			// We already have this number and it shouldn't have changed from above
-			// int numEntries = getNumEntries( myNode, false);
 			// We can hold one more spot in non-leaves than the size
 			//////////////////// PROPAGATE SPLIT UP ////////////////////////////////////
 			// TODO: Check this is right number, it or leaf one might be off by one
@@ -501,7 +476,7 @@ namespace badgerdb
 
 				this->bufMgr->unPinPage(this->file, newPageNum, true);
 				this->bufMgr->unPinPage(this->file, myPage, true);
-				// FIXME: Doesn't matter if we return garbage on root since it's not being used in original insert function?
+				// Doesn't matter if we return garbage on root since it's not being used in original insert function?
 				return returnPair;
 
 			}
@@ -523,11 +498,12 @@ namespace badgerdb
 		}
 	}
 
+	/////////////////////////////////////////////////////////////////////////////////////////
+	// SPLITNONLEAFANDINSERT
 	// This function splits a non-leaf.
 	// left side -> myLeaf
 	// right side -> newLeaf
-	// FIXME: I'm concerned that the splitting functions will do bad things.  We should check
-	// these thoroughly
+	/////////////////////////////////////////////////////////////////////////////////////////
 	int BTreeIndex::splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt * newNonLeaf, PageKeyPair<int> insertMe, int numEntries) {
 
 		// To make things more readable let's essentially rename some things
@@ -538,59 +514,10 @@ namespace badgerdb
 		left = myNonLeaf;
 		right = newNonLeaf;
 
-		// FIXME: THis should be leftmost entry on right side
+		// Middle node key
 		int middleKey = myNonLeaf->keyArray[nodeOccupancy/2];
 
-		/*
-		// grabbed
-		// Go through and find place to insert it
-		int testKey;
-		int indexToInsert = 0;
-		bool broke = false;
-		for (int i = 0; i < numEntries; i++, indexToInsert++) {
-		testKey = myNonLeaf->keyArray[i];
-		// Have we found the right place to insert
-		if (insertMe.key < testKey) {
-		broke = true;
-		break;
-		}
-		}
-		// Case that it should be at last entry
-		if (!broke) {
-		indexToInsert = numEntries - 1;
-		}
-		// Now indexToInsert should be where we want it to
-
-		// If we have an size = 3, this means halfway will be index 1
-		// If we have size 2, this means halfway will be index 2
-		int halfway = ;
-
-		// False means insert right side
-		// True means insert left side
-		bool insertLeftSide = NULL;
-		// TODO: Double check when not late at night
-		// FIXME: Maybe just always split in same spot?
-		// If odd, LEAFSIZE/2 is middle index,
-		if (INTARRAYLEAFSIZE % 2 == 1) {
-		// Be mindful so splitting splits evenly depending on where new node will be
-		if (indexToInsert <= (INTARRAYLEAFSIZE / 2) ) {
-		insertLeftSide = true;
-		halfway = INTARRAYLEAFSIZE / 2;
-		} else {
-		insertLeftSide = false;
-		halfway = (INTARRAYLEAFSIZE / 2) + 1;
-		}
-		} else {
-		if (indexToInsert <= (INTARRAYLEAFSIZE / 2) ) {
-		insertLeftSide = true;
-		} else {
-		insertLeftSide = false;
-		}
-		halfway = (INTARRAYLEAFSIZE / 2);
-		}
-		 */
-
-		// FIXME: simplify things for non-leaves?
+		// Place we are going to split at
 		int halfway = INTARRAYNONLEAFSIZE / 2 + 1;
 
 		// Iterate indextoplace as we copy over right half
@@ -610,7 +537,7 @@ namespace badgerdb
 			right->pageNoArray[i] = 0;
 		}
 
-		// FIXME: Does this simplerway work?
+		// Figure out which side our new key has to go in
 		bool insertLeftSide = NULL;
 		if ( insertMe.key < middleKey) {
 			insertLeftSide = true;
@@ -630,9 +557,12 @@ namespace badgerdb
 		return middleKey;
 	}
 
-	// This function splits a leaf.  If uneven, left side ends up bigger
+	/////////////////////////////////////////////////////////////////////////////////////////
+	// SPLITLEAFANDINSERT
+	// This function splits a leaf. 
 	// left side -> myLeaf
 	// right side -> newLeaf
+	/////////////////////////////////////////////////////////////////////////////////////////
 	void BTreeIndex::splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf, RIDKeyPair<int> insertMe, int numEntries) {
 
 		// To make things more readable let's essentially rename some things
@@ -646,56 +576,6 @@ namespace badgerdb
 		// We are going to need to NULL out some things
 		RecordId nullRecord;
 		nullRecord.page_number = 0;
-
-		/*
-		// grabbed
-		// Go through and find place to insert it
-		int testKey;
-		int indexToInsert = 0;
-		bool broke = false;
-		for (int i = 0; i < numEntries; i++, indexToInsert++) {
-		testKey = myLeaf->keyArray[i];
-		// Have we found the right place to insert
-		if (insertMe.key < testKey) {
-		broke = true;
-		break;
-		}
-		}
-		// Case that it should be at last entry
-		if (!broke) {
-		// FIXME: -1 correct
-		indexToInsert = numEntries - 1;
-		}
-		// Now indexToInsert should be where we want it to
-
-		// If we have an size = 3, this means halfway will be index 1
-		// If we have size 2, this means halfway will be index 2
-		int halfway;
-		// False means insert right side
-		// True means insert left side
-		bool insertLeftSide = NULL;
-
-		// TODO: Double check when not late at night
-		// FIXME: Maybe just always split in same spot?
-		// If odd, LEAFSIZE/2 is middle index,
-		if (INTARRAYLEAFSIZE % 2 == 1) {
-		// Be mindful so splitting splits evenly depending on where new node will be
-		if (indexToInsert <= (INTARRAYLEAFSIZE / 2) ) {
-		insertLeftSide = true;
-		halfway = INTARRAYLEAFSIZE / 2;
-		} else {
-		insertLeftSide = false;
-		halfway = (INTARRAYLEAFSIZE / 2) + 1;
-		}
-		} else {
-		if (indexToInsert <= (INTARRAYLEAFSIZE / 2) ) {
-		insertLeftSide = true;
-		} else {
-		insertLeftSide = false;
-		}
-		halfway = (INTARRAYLEAFSIZE / 2);
-		}
-		 */
 
 		int halfway = INTARRAYLEAFSIZE/2 + 1;
 
@@ -729,16 +609,22 @@ namespace badgerdb
 
 	}
 
+	///////////////////////////////////////////////////////////////////////////////////////
+	// PRINTLEAF
+	// Debug method
+	///////////////////////////////////////////////////////////////////////////////////////
 	void BTreeIndex::printLeaf(LeafNodeInt * myLeaf) {
 		for (int i = 0; i < INTARRAYLEAFSIZE; i++) {
 			printf("Key at index: %d = %d\n", i, myLeaf->keyArray[i]);
 		}
 	}
 
-	// TODO: @Carley Use this method in findLeavesHelper to determine maxIndex you can go to safely
-	// The number returned is the number of entries in the non leaf node.  So the last valid index
-	// would be the number returned - 1.  This can be used for leaves and non-leaves depending on
-	// isLeaf flag
+	///////////////////////////////////////////////////////////////////////////////////////
+	// GETNUMENTRIES
+	// Use this method in findLeavesHelper to determine maxIndex you can go to safely
+	// The number returned is the number of entries in the non leaf node 
+	// Works for leaves and non leaves depending on isLeaf flag
+	//////////////////////////////////////////////////////////////////////////////////////
 	int BTreeIndex::getNumEntries(Page * myNode, bool isLeaf) {
 
 		// This should be changed in next line
@@ -756,8 +642,6 @@ namespace badgerdb
 		for (int i = 0; i < max; i++) {
 			if (isLeaf) {
 				myRid = ( (LeafNodeInt *) myNode )->ridArray[i];
-				// FIXME: Will this error out when I hit end
-				// FIXME: Assumes when we go too far things are zeroed out
 				// We know page_number 0 is metadata so that should be safe
 				if (myRid.page_number == 0) {
 					return i;
@@ -765,7 +649,6 @@ namespace badgerdb
 			}
 			else {
 				myPid = ( (NonLeafNodeInt *) myNode )->pageNoArray[i+1];
-				// FIXME: Assume zeroed out again
 				if (myPid == 0) {
 					return i;
 				}
@@ -774,10 +657,11 @@ namespace badgerdb
 		return max;
 	}
 
-	//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! NOTE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	//!!!!!!!!!!!!!!!!!!!! THIS FUNCTION DOES NOT HANDLE SPLITS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	//!!!!!!!!!!!!!!!!!!!! WILL SEGFAULT IF CALLED ON FULL LEAF !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	/////////////////////////////////////////////////////////////////////////////////////////
+	// INSERTLEAFHELPER
+	// Inserts leaves
+	// NOTE: Will segfault if called on full leave
+	/////////////////////////////////////////////////////////////////////////////////////////
 	void BTreeIndex::insertLeafHelper(LeafNodeInt * myLeaf, RIDKeyPair<int> insertMe, int numEntries) {
 
 		// Just insert it at front if it's new
@@ -810,10 +694,11 @@ namespace badgerdb
 		myLeaf->ridArray[numEntries] = insertMe.rid;
 	}
 
+	/////////////////////////////////////////////////////////////////////////////////////////
+	// INSERTNONLEAFHELPER
 	// This function is very similar to the leaf-version except we need to place the page to
 	// the right of our key.  Also, pageNo arrays are one larger than key arrays
-	// TODO: Check indices are correct in this version
-	// FIXME: This is the other function I'm scared of.  Check closely
+	/////////////////////////////////////////////////////////////////////////////////////////
 	void BTreeIndex::insertNonLeafHelper(NonLeafNodeInt * myNonLeaf, PageKeyPair<int> insertMe, int numEntries) {
 
 		// Just insert it at front if it's new
@@ -832,6 +717,7 @@ namespace badgerdb
 				// We gotta shift everything over
 				// THIS WILL SEGFAULT IF CALLED ON FULL ARRAY
 				// From last entry -> where we are, shift, data up 1
+				// One different from leaf function
 				for (int j = numEntries - 1; j > i - 1; j--) {
 					myNonLeaf->keyArray[j+1] = myNonLeaf->keyArray[j];
 					myNonLeaf->pageNoArray[j+2] = myNonLeaf->pageNoArray[j+1];
@@ -849,7 +735,6 @@ namespace badgerdb
 	// -----------------------------------------------------------------------------
 	// BTreeIndex::startScan
 	// -----------------------------------------------------------------------------
-
 	const void BTreeIndex::startScan(const void* lowValParm,
 			const Operator lowOpParm,
 			const void* highValParm,
@@ -872,43 +757,6 @@ namespace badgerdb
 		}
 		this->scanExecuting = true;
 
-		/*
-		   bufMgr->readPage(this->file, rootPageNum, this->currentPageData);
-
-		   if (this->rootLeaf) {
-		   LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
-		   this->nextEntry = lowLeafHelper(currLeaf, lowValParm, lowOpParm);
-
-		   this->currentPageData = reinterpret_cast<Page*>(currLeaf);
-		   scanLeafHelper(highValParm, highOpParm);
-		   }
-		   else {
-		// mike: I think this is right.  "A leaf page that has been read into the buffer
-		// pool for the purpose of scanning, should not be unpinned from buffer pool unless
-		// all records from it are read or the scan has reached its end".  That makes it sound
-		// like in scanNext we bring it into the buffer pool and pin it.
-
-		NonLeafNodeInt *currNode = reinterpret_cast<NonLeafNodeInt*>(this->currentPageData);
-
-		// if the next level from root is the leaf level, call with bool nextLeaf = true, otherwise false
-		if (currNode->level != 1) {
-		findLeavesHelper(currNode, false, lowValParm, lowOpParm);
-		}
-		else {
-		findLeavesHelper(currNode, true, lowValParm, lowOpParm);
-		}
-
-		// we should return with currNode --> first leaf node in range, so cast to leaf struct
-		LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(currNode);
-		this->nextEntry = lowLeafHelper(currLeaf, lowValParm, lowOpParm);
-
-		// recast currLeaf to Page* and store in currentPageData to save as global data
-		this->currentPageData = reinterpret_cast<Page*>(currLeaf);
-		scanLeafHelper(highValParm, highOpParm);
-		}
-		endScan();
-		 */
-
 		// FIXME GRANT: Moving this uncommented logic above into the recursive methods
 		bool found = findLeavesHelper(this->rootPageNum);
 		if (!found) {
@@ -920,14 +768,13 @@ namespace badgerdb
 
 	}
 
-	/**
-	 * Traverses the tree recursively to find the leaf node that is found to be at the beginning of the range.
-	 */
-
+	/////////////////////////////////////////////////////////////////////////////////////////
+	// FINDLEAVESHELPER
+	// Traverses the tree recursively to find the leaf node that is found to be at the beginning of the range.
+	/////////////////////////////////////////////////////////////////////////////////////////
 	bool BTreeIndex::findLeavesHelper(PageId pn) {
 
 		//printf("FIND LEAVES HELPER: PID = %d\n", pn);
-
 
 		Page* currPage;
 		NonLeafNodeInt* currNode;
@@ -937,45 +784,9 @@ namespace badgerdb
 		int curridx = 0;
 		int numEntries = getNumEntries((Page*)currNode, false);
 
-
-		// OLD CODE
-
-		/*
-		   while (!smFound) {
-		   if (curridx >= numEntries) {
-		// save child pid and unpin curr page
-		PageId childPid = currNode->pageNoArray[numEntries];
-		bufMgr->unPinPage(file, currentPageNum, false);
-		// reset currNode as right pid
-		Page* tmpPage;
-		bufMgr->readPage(this->file, childPid, tmpPage);
-		currNode = (NonLeafNodeInt*) tmpPage;
-		this->currentPageNum = childPid;
-		smFound = true;
-		}
-		else {
-
-
-		if ((lowOp == GT && currNode->keyArray[curridx] > lowValInt) || (lowOp == GTE && currNode->keyArray[curridx] >= lowValInt)) {
-		// save child pid and unpin curr page
-		PageId childPid = currNode->pageNoArray[curridx];
-		bufMgr->unPinPage(file, currentPageNum, false);
-		// reset currNode as left pid
-		Page* tmpPage;
-		bufMgr->readPage(this->file, childPid, tmpPage);
-		currNode = (NonLeafNodeInt*) tmpPage;
-		this->currentPageNum = childPid;
-		smFound = true;
-		}
-		else {
-		// if the current key is still <=/< the low val...
-		curridx++;
-		}
-		}
-		}
-		 */
-
+		//////////////// ABOVE NON LEAF /////////////////////
 		if (currNode->level != 1) {
+			// Traverse the tree
 			for (curridx = 0; curridx < numEntries-1; curridx++) {
 				if (currNode->keyArray[curridx] > lowValInt) {
 
@@ -988,9 +799,10 @@ namespace badgerdb
 			PageId newPage = currNode->pageNoArray[curridx+1];
 			bufMgr->unPinPage(this->file, pn, false);
 			return findLeavesHelper(newPage);
-		} else {
-
-			// TIME TO CHECK LEAVES
+		} 
+		//////////////// ABOVE LEAF /////////////////////
+		else {
+			// look what leaf to got to, go there
 			for (curridx = 0; curridx < numEntries-1; curridx++) {
 				if (currNode->keyArray[curridx] > lowValInt) {
 					PageId newPage = currNode->pageNoArray[curridx];
@@ -1008,11 +820,14 @@ namespace badgerdb
 
 	}
 
-	/**
-	 * Throws new NoSuchKeyFoundException in the case where we couldn't find and value >/>= lowVal
-	 */
+	/////////////////////////////////////////////////////////////////////////////////////////
+	// LOWLEAFHELPER
+	// Throws new NoSuchKeyFoundException in the case where we couldn't find and value >/>= lowVal
+	// Helper method for scanning in leaves
+	////////////////////////////////////////////////////////////////////////////////////////
 	bool BTreeIndex::lowLeafHelper(PageId pn) {
 
+		// empty leaf
 		if (pn == 0) {
 			return false;
 		}
@@ -1094,15 +909,13 @@ namespace badgerdb
 
 	}
 
-	/**
-	 * Traverses the leaf node from nextEntry until it finds the specific key that is the
-	 * largest but </<= highVal, and scans each leaf that satisfies the range using scanNext.
-	 *
-	 * Throws new NoSuchKeyFoundException in the case where we couldn't find and value </<= highVal
-	 */
+	 ////////////////////////////////////////////////////////////////////////////////////////
+	 // SCANLEAFHELPER
+	 // Traverses the leaf node from nextEntry until it finds the specific key that is the
+	 // largest but </<= highVal, and scans each leaf that satisfies the range using scanNext
+	 // Throws new NoSuchKeyFoundException in the case where we couldn't find and value </<= highVal
+	 ///////////////////////////////////////////////////////////////////////////////////////
 	void BTreeIndex::scanLeafHelper(const void* highVal, const Operator highOp) {
-
-
 
 		LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
 		if ((highOp == LT && currLeaf->keyArray[this->nextEntry] >= *(int*)highVal)
@@ -1140,40 +953,6 @@ namespace badgerdb
 		}
 
 		LeafNodeInt* currentNode = (LeafNodeInt *) currentPageData;
-
-
-		// OLD CODE
-
-		/*
-		   if(currentNode->ridArray[nextEntry].page_number == 0 or this->nextEntry == this->leafOccupancy)
-		   {
-		//read page
-		bufMgr->unPinPage(file, currentPageNum, false);
-		// if there is no next leaves
-		if(currentNode->rightSibPageNo == 0)
-		{
-		throw new IndexScanCompletedException();
-		}
-		this->currentPageNum = currentNode->rightSibPageNo;
-		bufMgr->readPage(file, this->currentPageNum, this->currentPageData);
-		currentNode = (LeafNodeInt *) currentPageData;
-		// Resetting nextEntry
-		this->nextEntry = 0;
-		}
-
-		int key = currentNode->keyArray[this->nextEntry];
-		if(    keyCheck(lowValInt, highValInt, lowOp, highOp, key)    )
-		{
-		outRid = currentNode->ridArray[this->nextEntry];
-		// Incrment nextEntry
-		this->nextEntry++;
-		// If current page has been scanned to its entirety
-		}
-		else
-		{
-		throw new IndexScanCompletedException();
-		}
-		 */
 
 		outRid = currentNode->ridArray[nextEntry];
 		int lastIndexUsed = getNumEntries(this->currentPageData, true);
