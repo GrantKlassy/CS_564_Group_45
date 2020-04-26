@@ -16,7 +16,7 @@
 #include "exceptions/index_scan_completed_exception.h"
 #include "exceptions/file_not_found_exception.h"
 #include "exceptions/end_of_file_exception.h"
-
+#include "exceptions/hash_not_found_exception.h"
 #include <stack>
 
 // This is the structure for tuples in the base relation
@@ -872,7 +872,9 @@ namespace badgerdb
 		}
 		this->scanExecuting = true;
 
-		bufMgr->readPage(this->file, rootPageNum, this->currentPageData);
+		printf("IN STARTSCAN, rootPageNum = %u\n", this->rootPageNum);
+		bufMgr->readPage(this->file, this->rootPageNum, this->currentPageData);
+		printf("after read node in startScan\n");
 
 		if (this->rootLeaf) {
 			LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
@@ -896,6 +898,8 @@ namespace badgerdb
 			else {
 				findLeavesHelper(currNode, true, lowValParm, lowOpParm);
 			}
+			
+			printf("found leaf, about to find nextEntry\n");
 
 			// we should return with currNode --> first leaf node in range, so cast to leaf struct
 			LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(currNode);
@@ -912,31 +916,39 @@ namespace badgerdb
 	 * Traverses the tree recursively to find the leaf node that is found to be at the beginning of the range.
 	 */
 	void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, const void* lowVal, const Operator lowOp) {
+		printf("IN FINDLEAVESHELPER\n");
+
 		int curridx = 0;
 		bool smFound = false;
 		int numEntries = getNumEntries((Page*)currNode, false);
+		printf("numEntries in findLeavesHelper: %d\n", numEntries);
 		while (!smFound) {
 			if (curridx >= numEntries) {
+				printf("findleaveshelper loop - if\n");
 				// save child pid and unpin curr page
 				PageId childPid = currNode->pageNoArray[numEntries];
-				bufMgr->unPinPage(file, currentPageNum, false);
+				// bufMgr->unPinPage(file, currentPageNum, false);
+				// printf("unpinned page\n");
 				// reset currNode as right pid
 				Page* tmpPage;
+				printf("reading page with page no: %u\n", childPid);
 				bufMgr->readPage(this->file, childPid, tmpPage);
 				currNode = (NonLeafNodeInt*) tmpPage;
 				this->currentPageNum = childPid;
 				smFound = true;
 			}
 			else {
-
-
+				printf("findleaveshelper loop - else\n");
 				if ((lowOp == GT && currNode->keyArray[curridx] > *((int*)lowVal))
 						|| (lowOp == GTE && currNode->keyArray[curridx] >= *((int*)lowVal))) {
 					// save child pid and unpin curr page
 					PageId childPid = currNode->pageNoArray[curridx];
-					bufMgr->unPinPage(file, currentPageNum, false);
+					// printf("about to unpin page: %u\n", currentPageNum);
+					// bufMgr->unPinPage(file, currentPageNum, false);
+					// printf("unpinned page\n");
 					// reset currNode as left pid
 					Page* tmpPage;
+					printf("reading page with page no: %u\n", childPid);
 					bufMgr->readPage(this->file, childPid, tmpPage);
 					currNode = (NonLeafNodeInt*) tmpPage;
 					this->currentPageNum = childPid;
@@ -949,6 +961,7 @@ namespace badgerdb
 			}
 		}
 		if (nextLeaf) {
+			printf("about to leave findLeavesHelper\n");
 			return;
 		}
 		else if (currNode->level != 1) {
@@ -967,7 +980,9 @@ namespace badgerdb
 	 * Throws new NoSuchKeyFoundException in the case where we couldn't find and value >/>= lowVal
 	 */
 	int BTreeIndex::lowLeafHelper(LeafNodeInt * currLeaf, const void* lowVal, const Operator lowOp) {
-
+		printf("IN LOWLEAFHELPER\n");
+		printf("first key in currLeaf: %d\n", currLeaf->keyArray[0]);		
+		printf("first rid in currLeaf: %u\n", currLeaf->ridArray[0].page_number);
 
 		int startidx = -1;
 		int numEntries = getNumEntries((Page*)currLeaf, true);
