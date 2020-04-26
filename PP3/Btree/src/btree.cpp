@@ -740,26 +740,31 @@ namespace badgerdb
 			const void* highValParm,
 			const Operator highOpParm)
 	{
+
+		// Check exceptions
 		if ((lowOpParm != GT && lowOpParm != GTE) || (highOpParm != LT && highOpParm != LTE)) {
 			throw new BadOpcodesException;
 		}
 		if (*(int*)lowValParm > *(int*)highValParm) {
 			throw new BadScanrangeException;
 		}
+
+		// Set class variables for later
 		lowOp = lowOpParm;
 		highOp = highOpParm;
 		lowValInt = *(int*)lowValParm;
 		highValInt = *(int*)highValParm;
 
-		// check if scan already in progress and if so, end it
+		// Check if scan already in progress and if so, end it
 		if (this->scanExecuting) {
 			endScan();
 		}
 		this->scanExecuting = true;
 
-		// FIXME GRANT: Moving this uncommented logic above into the recursive methods
+		// Use findLeavesHelper to set nextEntry and check whether we found any keys in range
 		bool found = findLeavesHelper(this->rootPageNum);
 		if (!found) {
+			// If we didn't find any keys, react accordingly
 			this->endScan();
 			throw NoSuchKeyFoundException();
 		}
@@ -774,7 +779,6 @@ namespace badgerdb
 	/////////////////////////////////////////////////////////////////////////////////////////
 	bool BTreeIndex::findLeavesHelper(PageId pn) {
 
-		//printf("FIND LEAVES HELPER: PID = %d\n", pn);
 
 		Page* currPage;
 		NonLeafNodeInt* currNode;
@@ -827,28 +831,35 @@ namespace badgerdb
 	////////////////////////////////////////////////////////////////////////////////////////
 	bool BTreeIndex::lowLeafHelper(PageId pn) {
 
-		// empty leaf
+		// Check for an empty leaf
 		if (pn == 0) {
 			return false;
 		}
 
 		this->currentPageNum = pn;
+
+		// Read the current node
 		bufMgr->readPage(this->file, pn, this->currentPageData);
 		LeafNodeInt* currNode = (LeafNodeInt*)this->currentPageData;
+
+		// Get the number of entries for this node
 		int numEntries = getNumEntries((Page*)currNode, true);
 		int* keys = currNode->keyArray;
 		numEntries -= 1;
 		int i;
 
-		// This is just the same section of code copied 4 times based on the ops
+		// NOTE: This is just the same section of code copied 4 times based on the ops
 
 		if (lowOp == GT && highOp == LT) {
+			// For each entry in the current node...
 			for (i = 0; i <= numEntries; i++) {
+				// If the key is higher than the highValInt, we didn't find anything, return false
 				if (keys[i] >= highValInt) {
 					bufMgr->readPage(this->file, pn, this->currentPageData);
 					bufMgr->unPinPage(this->file, this->currentPageNum, false);
 					return false;
 				}
+				// If the key is in the range, we found something, return true and set nextEntry
 				if (lowValInt < keys[i] && keys[i] < highValInt) {
 					this->nextEntry = i;
 					return true;
@@ -858,12 +869,15 @@ namespace badgerdb
 			bufMgr->unPinPage(this->file, currentPageNum, false);
 			return lowLeafHelper(currNode->rightSibPageNo);
 		} else if (lowOp == GTE && highOp == LT) {
+			// For each entry in the current node...
 			for (i = 0; i <= numEntries; i++) {
+				// If the key is higher than the highValInt, we didn't find anything, return false
 				if (keys[i] >= highValInt) {
 					bufMgr->readPage(this->file, pn, this->currentPageData);
 					bufMgr->unPinPage(this->file, currentPageNum, false);
 					return false;
 				}
+				// If the key is in the range, we found something, return true and set nextEntry
 				if (lowValInt <= keys[i] && keys[i] < highValInt) {
 					this->nextEntry = i;
 					return true;
@@ -873,12 +887,15 @@ namespace badgerdb
 			bufMgr->unPinPage(this->file, currentPageNum, false);
 			return lowLeafHelper(currNode->rightSibPageNo);
 		} else if (lowOp == GTE && highOp == LTE) {
+			// For each entry in the current node...
 			for (i = 0; i <= numEntries; i++) {
+				// If the key is higher than the highValInt, we didn't find anything, return false
 				if (keys[i] > highValInt) {
 					bufMgr->readPage(this->file, pn, this->currentPageData);
 					bufMgr->unPinPage(this->file, currentPageNum, false);
 					return false;
 				}
+				// If the key is in the range, we found something, return true and set nextEntry
 				if (lowValInt <= keys[i] && keys[i] <= highValInt) {
 					this->nextEntry = i;
 					return true;
@@ -888,12 +905,15 @@ namespace badgerdb
 			bufMgr->unPinPage(this->file, currentPageNum, false);
 			return lowLeafHelper(currNode->rightSibPageNo);
 		} else if (lowOp == GT && highOp == LTE) {
+			// For each entry in the current node...
 			for (i = 0; i <= numEntries; i++) {
+				// If the key is higher than the highValInt, we didn't find anything, return false
 				if (keys[i] > highValInt) {
 					bufMgr->readPage(this->file, pn, this->currentPageData);
 					bufMgr->unPinPage(this->file, currentPageNum, false);
 					return false;
 				}
+				// If the key is in the range, we found something, return true and set nextEntry
 				if (lowValInt < keys[i] && keys[i] <= highValInt) {
 					this->nextEntry = i;
 					return true;
@@ -915,6 +935,8 @@ namespace badgerdb
 
 	const void BTreeIndex::scanNext(RecordId& outRid)
 	{
+
+		// Throw exceptions
 		if(!this->scanExecuting)
 		{
 			throw ScanNotInitializedException();
