@@ -395,8 +395,8 @@ namespace badgerdb
 			void insertNonLeafHelper(NonLeafNodeInt * myNonLeaf, PageKeyPair<int> insertMe, int numEntries);
 			const bool keyCheck(int lowVal, int highVal, const Operator lowOp, const Operator highOp, int key);
 			void scanLeafHelper(const void* highVal, const Operator highOp);
-			int lowLeafHelper(LeafNodeInt * currLeaf, const void* lowVal, const Operator lowOp);
-			void findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, const void* lowVal, const Operator lowOp);
+			bool lowLeafHelper(PageId pn);
+			bool findLeavesHelper(PageId pn);
 			void printLeaf(LeafNodeInt * myLeaf);
 
 

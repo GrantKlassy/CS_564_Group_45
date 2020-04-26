@@ -43,7 +43,7 @@ namespace badgerdb
 			const int attrByteOffset,
 			const Datatype attrType)
 	{
-		printf("IN CONSTRUCTOR\n");
+		//printf("IN CONSTRUCTOR\n");
 
 		//Taken from spec: How to get name of index file
 		std::ostringstream idxStr;
@@ -80,9 +80,9 @@ namespace badgerdb
 			//printf("FILE DOESN'T EXIST YET\n");
 
 			// Before looking through and adding things, lets alloc metadata at page 0
-			printf("ALLOCING HEADER\n");
+			//printf("ALLOCING HEADER\n");
 			bufMgr->allocPage(this->file, this->headerPageNum, myMetaPage);
-			printf("HEADER PAGE NUM: %u\n", this->headerPageNum);
+			//printf("HEADER PAGE NUM: %u\n", this->headerPageNum);
 			myMetaInfo = (IndexMetaInfo*)(myMetaPage);
 			// Since we already set headerPageNum to 0 by default, this is redundant
 			// this->headerPageNum = 0;
@@ -178,11 +178,11 @@ namespace badgerdb
 
 
 		// FIXME FIXME DEBUG
-	//	Page* myMetaPage;
-	//	IndexMetaInfo* myMetaInfo;
-	//	this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
-	//	myMetaInfo = (IndexMetaInfo*) myMetaPage;
-	//	std::cout << myMetaInfo->rootPageNo << std::endl;
+		//	Page* myMetaPage;
+		//	IndexMetaInfo* myMetaInfo;
+		//	this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
+		//	myMetaInfo = (IndexMetaInfo*) myMetaPage;
+		//	std::cout << myMetaInfo->rootPageNo << std::endl;
 
 		// If we don't have a root yet, let's make a root, update info
 		// GRANT: Unsigned vs signed int compare
@@ -190,11 +190,11 @@ namespace badgerdb
 		//printf("On Insert\n");
 		if (this->rootPageNum == 0) {
 
-			printf("INSERTING ROOT\n");
+			//printf("INSERTING ROOT\n");
 			Page * newNode;
 			PageId newPageNum;
 			bufMgr->allocPage(this->file, newPageNum, newNode);
-			printf("ROOT PAGE NUM: %u\n", newPageNum);
+			//printf("ROOT PAGE NUM: %u\n", newPageNum);
 
 			// Insert into root at index 1
 			insertLeafHelper((LeafNodeInt *) newNode, ridKeyCombo, 0);
@@ -279,7 +279,7 @@ namespace badgerdb
 				LeafNodeInt* newLeaf;
 				//printf("BEFORE ALLOC: new page num: %u\n", newPageNum);
 				//printf("Trying to insert key: %d\n", myKey);
-			//	printLeaf(myLeaf);
+				//	printLeaf(myLeaf);
 				this->bufMgr->allocPage(this->file, newPageNum, newPage);
 				//printf("AFTER ALLOC: new page num: %u\n", newPageNum);
 
@@ -323,12 +323,12 @@ namespace badgerdb
 				// TODO: Double check
 				if ( this->rootLeaf ) {
 
-					printf("IN ROOTLEAF SPLIT\n");
+					//printf("IN ROOTLEAF SPLIT\n");
 					// We need to make new root node cuz we have nothing to return to?
 					PageId newRootPageNum;
 					Page * newRootPage;
 					bufMgr->allocPage( this->file, newRootPageNum, newRootPage);
-					printf("ROOTLEAF SPLIT NUM%u\n", newRootPageNum);
+					//printf("ROOTLEAF SPLIT NUM%u\n", newRootPageNum);
 					NonLeafNodeInt * newRoot = (NonLeafNodeInt*) newRootPage;
 					for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
 						newRoot->keyArray[i] = 0;
@@ -444,7 +444,7 @@ namespace badgerdb
 			// TODO: Check this is right number, it or leaf one might be off by one
 			if (numEntries == INTARRAYNONLEAFSIZE) {
 
-				printf("SPLITTING NONLEAF\n");
+				//printf("SPLITTING NONLEAF\n");
 				// Alloc new non-Leaf
 				PageId newPageNum;
 				Page * newPage;
@@ -452,7 +452,7 @@ namespace badgerdb
 				bufMgr->allocPage(this->file, newPageNum, newPage);
 				newNonLeaf = (NonLeafNodeInt*) newPage;
 
-				printf("NON LEAF SPLIT NUM%u\n", newPageNum);
+				//printf("NON LEAF SPLIT NUM%u\n", newPageNum);
 				int returnKey = splitNonLeafAndInsert(myNonLeaf, newNonLeaf, splitInfo, numEntries);
 				// Get all of the stuff we need to return
 				// The pageNo of the rightLeaf node we just made
@@ -466,11 +466,11 @@ namespace badgerdb
 				if (path.size() == 0) {
 
 					// We need to make new root node cuz we have nothing to return to?
-					printf("SPLITTING NON LEAF ROOT\n");
+					//printf("SPLITTING NON LEAF ROOT\n");
 					PageId newRootPageNum;
 					Page * newRootPage;
 					bufMgr->allocPage( this->file, newRootPageNum, newRootPage);
-					printf("NONLEAF ROOT PAGE NUM: %u\n", newRootPageNum);
+					//printf("NONLEAF ROOT PAGE NUM: %u\n", newRootPageNum);
 					NonLeafNodeInt * newRoot = (NonLeafNodeInt*) newRootPage;
 					for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
 						newRoot->keyArray[i] = 0;
@@ -654,17 +654,17 @@ namespace badgerdb
 		int indexToInsert = 0;
 		bool broke = false;
 		for (int i = 0; i < numEntries; i++, indexToInsert++) {
-			testKey = myLeaf->keyArray[i];
-			// Have we found the right place to insert
-			if (insertMe.key < testKey) {
-				broke = true;
-				break;
-			}
+		testKey = myLeaf->keyArray[i];
+		// Have we found the right place to insert
+		if (insertMe.key < testKey) {
+		broke = true;
+		break;
+		}
 		}
 		// Case that it should be at last entry
 		if (!broke) {
-			// FIXME: -1 correct
-			indexToInsert = numEntries - 1;
+		// FIXME: -1 correct
+		indexToInsert = numEntries - 1;
 		}
 		// Now indexToInsert should be where we want it to
 
@@ -679,23 +679,23 @@ namespace badgerdb
 		// FIXME: Maybe just always split in same spot?
 		// If odd, LEAFSIZE/2 is middle index,
 		if (INTARRAYLEAFSIZE % 2 == 1) {
-			// Be mindful so splitting splits evenly depending on where new node will be
-			if (indexToInsert <= (INTARRAYLEAFSIZE / 2) ) {
-				insertLeftSide = true;
-				halfway = INTARRAYLEAFSIZE / 2;
-			} else {
-				insertLeftSide = false;
-				halfway = (INTARRAYLEAFSIZE / 2) + 1;
-			}
+		// Be mindful so splitting splits evenly depending on where new node will be
+		if (indexToInsert <= (INTARRAYLEAFSIZE / 2) ) {
+		insertLeftSide = true;
+		halfway = INTARRAYLEAFSIZE / 2;
 		} else {
-			if (indexToInsert <= (INTARRAYLEAFSIZE / 2) ) {
-				insertLeftSide = true;
-			} else {
-				insertLeftSide = false;
-			}
-			halfway = (INTARRAYLEAFSIZE / 2);
+		insertLeftSide = false;
+		halfway = (INTARRAYLEAFSIZE / 2) + 1;
 		}
-		*/
+		} else {
+		if (indexToInsert <= (INTARRAYLEAFSIZE / 2) ) {
+		insertLeftSide = true;
+		} else {
+		insertLeftSide = false;
+		}
+		halfway = (INTARRAYLEAFSIZE / 2);
+		}
+		 */
 
 		int halfway = INTARRAYLEAFSIZE/2 + 1;
 
@@ -872,121 +872,226 @@ namespace badgerdb
 		}
 		this->scanExecuting = true;
 
-		bufMgr->readPage(this->file, rootPageNum, this->currentPageData);
+		/*
+		   bufMgr->readPage(this->file, rootPageNum, this->currentPageData);
 
-		if (this->rootLeaf) {
-			LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
-			this->nextEntry = lowLeafHelper(currLeaf, lowValParm, lowOpParm);
+		   if (this->rootLeaf) {
+		   LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
+		   this->nextEntry = lowLeafHelper(currLeaf, lowValParm, lowOpParm);
 
-			this->currentPageData = reinterpret_cast<Page*>(currLeaf);
-			scanLeafHelper(highValParm, highOpParm);
+		   this->currentPageData = reinterpret_cast<Page*>(currLeaf);
+		   scanLeafHelper(highValParm, highOpParm);
+		   }
+		   else {
+		// mike: I think this is right.  "A leaf page that has been read into the buffer
+		// pool for the purpose of scanning, should not be unpinned from buffer pool unless
+		// all records from it are read or the scan has reached its end".  That makes it sound
+		// like in scanNext we bring it into the buffer pool and pin it.
+
+		NonLeafNodeInt *currNode = reinterpret_cast<NonLeafNodeInt*>(this->currentPageData);
+
+		// if the next level from root is the leaf level, call with bool nextLeaf = true, otherwise false
+		if (currNode->level != 1) {
+		findLeavesHelper(currNode, false, lowValParm, lowOpParm);
 		}
 		else {
-			// mike: I think this is right.  "A leaf page that has been read into the buffer
-			// pool for the purpose of scanning, should not be unpinned from buffer pool unless
-			// all records from it are read or the scan has reached its end".  That makes it sound
-			// like in scanNext we bring it into the buffer pool and pin it.
+		findLeavesHelper(currNode, true, lowValParm, lowOpParm);
+		}
 
-			NonLeafNodeInt *currNode = reinterpret_cast<NonLeafNodeInt*>(this->currentPageData);
+		// we should return with currNode --> first leaf node in range, so cast to leaf struct
+		LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(currNode);
+		this->nextEntry = lowLeafHelper(currLeaf, lowValParm, lowOpParm);
 
-			// if the next level from root is the leaf level, call with bool nextLeaf = true, otherwise false
-			if (currNode->level != 1) {
-				findLeavesHelper(currNode, false, lowValParm, lowOpParm);
-			}
-			else {
-				findLeavesHelper(currNode, true, lowValParm, lowOpParm);
-			}
-
-			// we should return with currNode --> first leaf node in range, so cast to leaf struct
-			LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(currNode);
-			this->nextEntry = lowLeafHelper(currLeaf, lowValParm, lowOpParm);
-
-			// recast currLeaf to Page* and store in currentPageData to save as global data
-			this->currentPageData = reinterpret_cast<Page*>(currLeaf);
-			scanLeafHelper(highValParm, highOpParm);
+		// recast currLeaf to Page* and store in currentPageData to save as global data
+		this->currentPageData = reinterpret_cast<Page*>(currLeaf);
+		scanLeafHelper(highValParm, highOpParm);
 		}
 		endScan();
+		 */
+
+		// FIXME GRANT: Moving this uncommented logic above into the recursive methods
+		bool found = findLeavesHelper(this->rootPageNum);
+		if (!found) {
+			this->endScan();
+			throw NoSuchKeyFoundException();
+		}
+
+
+
 	}
 
 	/**
 	 * Traverses the tree recursively to find the leaf node that is found to be at the beginning of the range.
 	 */
-	void BTreeIndex::findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, const void* lowVal, const Operator lowOp) {
+
+	bool BTreeIndex::findLeavesHelper(PageId pn) {
+
+		//printf("FIND LEAVES HELPER: PID = %d\n", pn);
+
+
+		Page* currPage;
+		NonLeafNodeInt* currNode;
+		bufMgr->readPage(this->file, pn, currPage);
+		currNode = (NonLeafNodeInt*)currPage;
+
 		int curridx = 0;
-		bool smFound = false;
 		int numEntries = getNumEntries((Page*)currNode, false);
-		while (!smFound) {
-			if (curridx >= numEntries) {
-				// save child pid and unpin curr page
-				PageId childPid = currNode->pageNoArray[numEntries];
-				bufMgr->unPinPage(file, currentPageNum, false);
-				// reset currNode as right pid
-				Page* tmpPage;
-				bufMgr->readPage(this->file, childPid, tmpPage);
-				currNode = (NonLeafNodeInt*) tmpPage;
-				this->currentPageNum = childPid;
-				smFound = true;
-			}
-			else {
 
 
-				if ((lowOp == GT && currNode->keyArray[curridx] > *((int*)lowVal))
-						|| (lowOp == GTE && currNode->keyArray[curridx] >= *((int*)lowVal))) {
-					// save child pid and unpin curr page
-					PageId childPid = currNode->pageNoArray[curridx];
-					bufMgr->unPinPage(file, currentPageNum, false);
-					// reset currNode as left pid
-					Page* tmpPage;
-					bufMgr->readPage(this->file, childPid, tmpPage);
-					currNode = (NonLeafNodeInt*) tmpPage;
-					this->currentPageNum = childPid;
-					smFound = true;
-				}
-				else {
-					// if the current key is still <=/< the low val...
-					curridx++;
-				}
-			}
-		}
-		if (nextLeaf) {
-			return;
-		}
-		else if (currNode->level != 1) {
-			findLeavesHelper(currNode, false, lowVal, lowOp);
+		// OLD CODE
+
+		/*
+		   while (!smFound) {
+		   if (curridx >= numEntries) {
+		// save child pid and unpin curr page
+		PageId childPid = currNode->pageNoArray[numEntries];
+		bufMgr->unPinPage(file, currentPageNum, false);
+		// reset currNode as right pid
+		Page* tmpPage;
+		bufMgr->readPage(this->file, childPid, tmpPage);
+		currNode = (NonLeafNodeInt*) tmpPage;
+		this->currentPageNum = childPid;
+		smFound = true;
 		}
 		else {
-			// we should be at the level above the leaves
-			findLeavesHelper(currNode, true, lowVal, lowOp);
+
+
+		if ((lowOp == GT && currNode->keyArray[curridx] > lowValInt) || (lowOp == GTE && currNode->keyArray[curridx] >= lowValInt)) {
+		// save child pid and unpin curr page
+		PageId childPid = currNode->pageNoArray[curridx];
+		bufMgr->unPinPage(file, currentPageNum, false);
+		// reset currNode as left pid
+		Page* tmpPage;
+		bufMgr->readPage(this->file, childPid, tmpPage);
+		currNode = (NonLeafNodeInt*) tmpPage;
+		this->currentPageNum = childPid;
+		smFound = true;
 		}
+		else {
+		// if the current key is still <=/< the low val...
+		curridx++;
+		}
+		}
+		}
+		 */
+
+		if (currNode->level != 1) {
+			for (curridx = 0; curridx < numEntries-1; curridx++) {
+				if (currNode->keyArray[curridx] > lowValInt) {
+
+					PageId newPage = currNode->pageNoArray[curridx];
+					bufMgr->unPinPage(this->file, pn, false);
+					return findLeavesHelper(newPage);
+				}
+
+			}
+			PageId newPage = currNode->pageNoArray[curridx+1];
+			bufMgr->unPinPage(this->file, pn, false);
+			return findLeavesHelper(newPage);
+		} else {
+
+			// TIME TO CHECK LEAVES
+			for (curridx = 0; curridx < numEntries-1; curridx++) {
+				if (currNode->keyArray[curridx] > lowValInt) {
+					PageId newPage = currNode->pageNoArray[curridx];
+					bufMgr->unPinPage(this->file, pn, false);
+					return lowLeafHelper(newPage);
+				}
+			}
+			PageId newPage = currNode->pageNoArray[curridx+1];
+			bufMgr->unPinPage(this->file, pn, false);
+			return lowLeafHelper(newPage);
+
+		}
+
+		return false;
+
 	}
 
 	/**
-	 * Traverses the leaf node found to be at the beginning of the range, finds the specific key that is the
-	 * smallest but >/>= lowVal, and sets nextEntry to its index and returns nextEntry.
-	 *
 	 * Throws new NoSuchKeyFoundException in the case where we couldn't find and value >/>= lowVal
 	 */
-	int BTreeIndex::lowLeafHelper(LeafNodeInt * currLeaf, const void* lowVal, const Operator lowOp) {
+	bool BTreeIndex::lowLeafHelper(PageId pn) {
 
+		if (pn == 0) {
+			return false;
+		}
 
-		int startidx = -1;
-		int numEntries = getNumEntries((Page*)currLeaf, true);
+		this->currentPageNum = pn;
+		bufMgr->readPage(this->file, pn, this->currentPageData);
+		LeafNodeInt* currNode = (LeafNodeInt*)this->currentPageData;
+		int numEntries = getNumEntries((Page*)currNode, true);
+		int* keys = currNode->keyArray;
+		numEntries -= 1;
+		int i;
 
-		// FIXME GRANT: Why is numEntries 0 here?
-		std::cout << "Num entries: " << numEntries << std::endl;
+		// This is just the same section of code copied 4 times based on the ops
 
-		for (int i = numEntries-1; i >= 0; i--) {
-			if ((lowOp == GT && currLeaf->keyArray[i] > *(int*)lowVal)
-					|| (lowOp == GTE && currLeaf->keyArray[i] >= *(int*)lowVal)) {
-				startidx = i;
+		if (lowOp == GT && highOp == LT) {
+			for (i = 0; i <= numEntries; i++) {
+				if (keys[i] >= highValInt) {
+					bufMgr->readPage(this->file, pn, this->currentPageData);
+					bufMgr->unPinPage(this->file, this->currentPageNum, false);
+					return false;
+				}
+				if (lowValInt < keys[i] && keys[i] < highValInt) {
+					this->nextEntry = i;
+					return true;
+				}
 			}
+			bufMgr->readPage(this->file, pn, this->currentPageData);
+			bufMgr->unPinPage(this->file, currentPageNum, false);
+			return lowLeafHelper(currNode->rightSibPageNo);
+		} else if (lowOp == GTE && highOp == LT) {
+			for (i = 0; i <= numEntries; i++) {
+				if (keys[i] >= highValInt) {
+					bufMgr->readPage(this->file, pn, this->currentPageData);
+					bufMgr->unPinPage(this->file, currentPageNum, false);
+					return false;
+				}
+				if (lowValInt <= keys[i] && keys[i] < highValInt) {
+					this->nextEntry = i;
+					return true;
+				}
+			}
+			bufMgr->readPage(this->file, pn, this->currentPageData);
+			bufMgr->unPinPage(this->file, currentPageNum, false);
+			return lowLeafHelper(currNode->rightSibPageNo);
+		} else if (lowOp == GTE && highOp == LTE) {
+			for (i = 0; i <= numEntries; i++) {
+				if (keys[i] > highValInt) {
+					bufMgr->readPage(this->file, pn, this->currentPageData);
+					bufMgr->unPinPage(this->file, currentPageNum, false);
+					return false;
+				}
+				if (lowValInt <= keys[i] && keys[i] <= highValInt) {
+					this->nextEntry = i;
+					return true;
+				}
+			}
+			bufMgr->readPage(this->file, pn, this->currentPageData);
+			bufMgr->unPinPage(this->file, currentPageNum, false);
+			return lowLeafHelper(currNode->rightSibPageNo);
+		} else if (lowOp == GT && highOp == LTE) {
+			for (i = 0; i <= numEntries; i++) {
+				if (keys[i] > highValInt) {
+					bufMgr->readPage(this->file, pn, this->currentPageData);
+					bufMgr->unPinPage(this->file, currentPageNum, false);
+					return false;
+				}
+				if (lowValInt < keys[i] && keys[i] <= highValInt) {
+					this->nextEntry = i;
+					return true;
+				}
+			}
+			bufMgr->readPage(this->file, pn, this->currentPageData);
+			bufMgr->unPinPage(this->file, currentPageNum, false);
+			return lowLeafHelper(currNode->rightSibPageNo);
 		}
-		if (startidx == -1) {
-			throw new NoSuchKeyFoundException;
-		}
-		else {
-			return startidx;
-		}
+		return false;
+
+
+
 	}
 
 	/**
@@ -999,10 +1104,6 @@ namespace badgerdb
 
 
 
-		// FIXME GRANT: highVal is a void*, can we just cast it to *(*int) and use it to compare?
-		// FIXME GRANT: That's what I'm doing to get it to compile...
-
-		// check to make sure that at least one key is within range
 		LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
 		if ((highOp == LT && currLeaf->keyArray[this->nextEntry] >= *(int*)highVal)
 				|| (highOp == LTE && currLeaf->keyArray[this->nextEntry] > *(int*)highVal)) {
@@ -1011,7 +1112,6 @@ namespace badgerdb
 
 		bool inRange;
 		do {
-			//cast everytime to ensure we use the right node if scanNext moves onto the next one
 			LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
 			if ((highOp == LT && currLeaf->keyArray[this->nextEntry] < *(int*)highVal)
 					|| (highOp == LTE && currLeaf->keyArray[this->nextEntry] <= *(int*)highVal)) {
@@ -1039,36 +1139,95 @@ namespace badgerdb
 			throw IndexScanCompletedException();
 		}
 
-		// Casting page to node
 		LeafNodeInt* currentNode = (LeafNodeInt *) currentPageData;
-		if(currentNode->ridArray[nextEntry].page_number == 0 or this->nextEntry == this->leafOccupancy)
+
+
+		// OLD CODE
+
+		/*
+		   if(currentNode->ridArray[nextEntry].page_number == 0 or this->nextEntry == this->leafOccupancy)
+		   {
+		//read page
+		bufMgr->unPinPage(file, currentPageNum, false);
+		// if there is no next leaves
+		if(currentNode->rightSibPageNo == 0)
 		{
-			//read page
-			bufMgr->unPinPage(file, currentPageNum, false);
-			// if there is no next leaves
-			if(currentNode->rightSibPageNo == 0)
-			{
-				throw new IndexScanCompletedException();
-			}
-			this->currentPageNum = currentNode->rightSibPageNo;
-			bufMgr->readPage(file, this->currentPageNum, this->currentPageData);
-			currentNode = (LeafNodeInt *) currentPageData;
-			// Resetting nextEntry
-			this->nextEntry = 0;
+		throw new IndexScanCompletedException();
+		}
+		this->currentPageNum = currentNode->rightSibPageNo;
+		bufMgr->readPage(file, this->currentPageNum, this->currentPageData);
+		currentNode = (LeafNodeInt *) currentPageData;
+		// Resetting nextEntry
+		this->nextEntry = 0;
 		}
 
 		int key = currentNode->keyArray[this->nextEntry];
 		if(    keyCheck(lowValInt, highValInt, lowOp, highOp, key)    )
 		{
-			outRid = currentNode->ridArray[this->nextEntry];
-			// Incrment nextEntry
-			this->nextEntry++;
-			// If current page has been scanned to its entirety
+		outRid = currentNode->ridArray[this->nextEntry];
+		// Incrment nextEntry
+		this->nextEntry++;
+		// If current page has been scanned to its entirety
 		}
 		else
 		{
-			throw new IndexScanCompletedException();
+		throw new IndexScanCompletedException();
 		}
+		 */
+
+		outRid = currentNode->ridArray[nextEntry];
+		int lastIndexUsed = getNumEntries(this->currentPageData, true);
+		lastIndexUsed -= 1;
+
+		if (nextEntry + 1 <= lastIndexUsed) {
+			switch (highOp) {
+				case LT:
+					if (currentNode->keyArray[nextEntry+1] < highValInt)
+						nextEntry = nextEntry + 1;
+					else
+						nextEntry = -1;
+					break;
+				case LTE:
+					if (currentNode->keyArray[nextEntry+1] <= highValInt)
+						nextEntry = nextEntry + 1;
+					else
+						nextEntry = -1;
+					break;
+				default:
+					throw BadOpcodesException();
+			}
+		} else {
+			PageId lastPage = currentPageNum;
+			currentPageNum = currentNode->rightSibPageNo;
+			if(currentNode->rightSibPageNo ==0)
+			{
+				bufMgr->unPinPage(this->file, lastPage, false);
+				nextEntry = -1;
+				return;
+			}
+			bufMgr->readPage( file, currentNode->rightSibPageNo, currentPageData);
+			currentNode = (LeafNodeInt*) currentPageData;
+			bufMgr->unPinPage(this->file, lastPage, false);
+			nextEntry = -1;
+
+			switch (highOp) {
+				case LT:
+					if (currentNode->keyArray[nextEntry+1] < highValInt)
+						nextEntry = nextEntry + 1;
+					else
+						nextEntry = -1;
+					break;
+				case LTE:
+					if (currentNode->keyArray[nextEntry+1] <= highValInt)
+						nextEntry = nextEntry + 1;
+					else
+						nextEntry = -1;
+					break;
+				default:
+					throw BadOpcodesException();
+			}
+		}
+
 	}
 
 	//helper for scanNext() to check the key(I thought it was useful)
