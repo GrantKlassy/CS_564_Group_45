@@ -399,7 +399,6 @@ namespace badgerdb
 			void findLeavesHelper(NonLeafNodeInt * currNode, bool nextLeaf, const void* lowVal, const Operator lowOp);
 			void printLeaf(LeafNodeInt * myLeaf);
 
-
 	};
 
 }

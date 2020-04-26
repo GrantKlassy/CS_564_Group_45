@@ -131,6 +131,12 @@ namespace badgerdb
 			}
 			catch(EndOfFileException e) {
 				//std::cout << "Read all records" << std::endl;
+				printf("READING PAGE 2\n");
+				Page * page2;
+				this->bufMgr->readPage(this->file, 2, page2);
+				printLeaf((LeafNodeInt *) page2);
+				this->bufMgr->unPinPage( this->file, 2, false);
+				printf("DONE PAGE 2\n");
 			}
 		} else {
 			// open file
@@ -730,8 +736,11 @@ namespace badgerdb
 	}
 
 	void BTreeIndex::printLeaf(LeafNodeInt * myLeaf) {
-		for (int i = 0; i < INTARRAYLEAFSIZE; i++) {
+		//for (int i = 0; i < INTARRAYLEAFSIZE; i++) {
+		for (int i = 0; i < 10; i++) {
 			printf("Key at index: %d = %d\n", i, myLeaf->keyArray[i]);
+
+			printf("RID at index: %d = %u\n", i, myLeaf->ridArray[i].page_number);
 		}
 	}
 
@@ -903,6 +912,9 @@ namespace badgerdb
 
 			// we should return with currNode --> first leaf node in range, so cast to leaf struct
 			LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(currNode);
+
+			printLeaf(currLeaf);
+
 			this->nextEntry = lowLeafHelper(currLeaf, lowValParm, lowOpParm);
 
 			// recast currLeaf to Page* and store in currentPageData to save as global data
@@ -986,6 +998,7 @@ namespace badgerdb
 
 		int startidx = -1;
 		int numEntries = getNumEntries((Page*)currLeaf, true);
+
 
 		// FIXME GRANT: Why is numEntries 0 here?
 		std::cout << "Num entries: " << numEntries << std::endl;
@@ -1116,4 +1129,8 @@ namespace badgerdb
 		this->nextEntry = -1;
 	}
 
+
+
 }
+
+
