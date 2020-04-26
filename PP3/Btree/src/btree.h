@@ -393,8 +393,6 @@ namespace badgerdb
 			void splitLeafAndInsert(LeafNodeInt * myLeaf, LeafNodeInt * newLeaf, RIDKeyPair<int> insertMe, int numEntries);
 			int splitNonLeafAndInsert(NonLeafNodeInt * myNonLeaf, NonLeafNodeInt * newNonLeaf, PageKeyPair<int> insertMe, int numEntries);
 			void insertNonLeafHelper(NonLeafNodeInt * myNonLeaf, PageKeyPair<int> insertMe, int numEntries);
-			const bool keyCheck(int lowVal, int highVal, const Operator lowOp, const Operator highOp, int key);
-			void scanLeafHelper(const void* highVal, const Operator highOp);
 			bool lowLeafHelper(PageId pn);
 			bool findLeavesHelper(PageId pn);
 			void printLeaf(LeafNodeInt * myLeaf);

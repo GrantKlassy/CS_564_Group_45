@@ -909,34 +909,6 @@ namespace badgerdb
 
 	}
 
-	 ////////////////////////////////////////////////////////////////////////////////////////
-	 // SCANLEAFHELPER
-	 // Traverses the leaf node from nextEntry until it finds the specific key that is the
-	 // largest but </<= highVal, and scans each leaf that satisfies the range using scanNext
-	 // Throws new NoSuchKeyFoundException in the case where we couldn't find and value </<= highVal
-	 ///////////////////////////////////////////////////////////////////////////////////////
-	void BTreeIndex::scanLeafHelper(const void* highVal, const Operator highOp) {
-
-		LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
-		if ((highOp == LT && currLeaf->keyArray[this->nextEntry] >= *(int*)highVal)
-				|| (highOp == LTE && currLeaf->keyArray[this->nextEntry] > *(int*)highVal)) {
-			throw new NoSuchKeyFoundException;
-		}
-
-		bool inRange;
-		do {
-			LeafNodeInt *currLeaf = reinterpret_cast<LeafNodeInt*>(this->currentPageData);
-			if ((highOp == LT && currLeaf->keyArray[this->nextEntry] < *(int*)highVal)
-					|| (highOp == LTE && currLeaf->keyArray[this->nextEntry] <= *(int*)highVal)) {
-				inRange = true;
-				scanNext(currLeaf->ridArray[this->nextEntry]);
-			}
-			else {
-				inRange = false;
-			}
-		} while (inRange);
-	}
-
 	// -----------------------------------------------------------------------------
 	// BTreeIndex::scanNext
 	// -----------------------------------------------------------------------------
@@ -952,77 +924,52 @@ namespace badgerdb
 			throw IndexScanCompletedException();
 		}
 
+		// The current node that we're scanning through
 		LeafNodeInt* currentNode = (LeafNodeInt *) currentPageData;
 
+		// Get the lastIndex that we used and the rid array for this node
 		outRid = currentNode->ridArray[nextEntry];
 		int lastIndexUsed = getNumEntries(this->currentPageData, true);
 		lastIndexUsed -= 1;
 
+		// If we are still on the same node...
 		if (nextEntry + 1 <= lastIndexUsed) {
-			switch (highOp) {
-				case LT:
-					if (currentNode->keyArray[nextEntry+1] < highValInt)
-						nextEntry = nextEntry + 1;
-					else
-						nextEntry = -1;
-					break;
-				case LTE:
-					if (currentNode->keyArray[nextEntry+1] <= highValInt)
-						nextEntry = nextEntry + 1;
-					else
-						nextEntry = -1;
-					break;
-				default:
-					throw BadOpcodesException();
+
+			// Get the next value and check it against our key
+			int nextVal = currentNode->keyArray[nextEntry + 1];
+			if (  ((highOp == LT) && (nextVal < highValInt)) || ((highOp == LTE) && (nextVal <= highValInt)) ) {
+				nextEntry = nextEntry + 1;
+			} else {
+				nextEntry = -1;
 			}
+
 		} else {
+			// If we need to go to the next node, go to the right sibling
 			PageId lastPage = currentPageNum;
 			currentPageNum = currentNode->rightSibPageNo;
+
+			// If the right sibling doesn't exist, end
 			if(currentNode->rightSibPageNo ==0)
 			{
 				bufMgr->unPinPage(this->file, lastPage, false);
 				nextEntry = -1;
 				return;
 			}
+
+			// Read the right sibling
 			bufMgr->readPage( file, currentNode->rightSibPageNo, currentPageData);
 			currentNode = (LeafNodeInt*) currentPageData;
 			bufMgr->unPinPage(this->file, lastPage, false);
 			nextEntry = -1;
 
-			switch (highOp) {
-				case LT:
-					if (currentNode->keyArray[nextEntry+1] < highValInt)
-						nextEntry = nextEntry + 1;
-					else
-						nextEntry = -1;
-					break;
-				case LTE:
-					if (currentNode->keyArray[nextEntry+1] <= highValInt)
-						nextEntry = nextEntry + 1;
-					else
-						nextEntry = -1;
-					break;
-				default:
-					throw BadOpcodesException();
+			// Get the next value and check it against our key
+			int nextVal = currentNode->keyArray[nextEntry+1];
+			if (  ((highOp == LT) && (nextVal < highValInt)) || ((highOp == LTE) && (nextVal <= highValInt)) ) {
+				nextEntry = nextEntry + 1;
+			} else {
+				nextEntry = -1;
 			}
-		}
 
-	}
-
-	//helper for scanNext() to check the key(I thought it was useful)
-	const bool BTreeIndex::keyCheck(int lowVal, int highVal, const Operator lowOp, const Operator highOp, int key)
-	{
-		if(lowOp == GTE && highOp == LTE) {
-			return key <= highVal && key >= lowVal;
-		} else if (lowOp == GTE && highOp == LT) {
-			return key < highVal && key >= lowVal;
-		} else if(lowOp == GT && highOp == LTE) {
-			return key <= highVal && key > lowVal;
-		} else if (lowOp == GT && highOp == LT) {
-			return key < highVal && key > lowVal;
-		} else {
-			// FIXME This needs to throw a bad op exception
-			return false;
 		}
 
 	}
