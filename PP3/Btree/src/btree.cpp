@@ -743,10 +743,10 @@ namespace badgerdb
 
 		// Check exceptions
 		if ((lowOpParm != GT && lowOpParm != GTE) || (highOpParm != LT && highOpParm != LTE)) {
-			throw new BadOpcodesException;
+			throw BadOpcodesException();
 		}
 		if (*(int*)lowValParm > *(int*)highValParm) {
-			throw new BadScanrangeException;
+			throw BadScanrangeException();
 		}
 
 		// Set class variables for later
@@ -1003,7 +1003,7 @@ namespace badgerdb
 	const void BTreeIndex::endScan()
 	{
 		if(!this->scanExecuting) {
-			throw new ScanNotInitializedException();
+			throw ScanNotInitializedException();
 		}
 		this->scanExecuting = false;
 		// Unpin page

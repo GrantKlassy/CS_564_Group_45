@@ -73,6 +73,7 @@ void indexTests();
 void test1();
 void test2();
 void test3();
+void test4();
 void errorTests();
 void deleteRelation();
 
@@ -140,7 +141,8 @@ int main(int argc, char **argv)
 	test1();
 	test2();
 	test3();
-	//errorTests();
+	// test4();
+	errorTests();
 
 	return 1;
 }
@@ -176,6 +178,94 @@ void test3()
 	createRelationRandom();
 	indexTests();
 	deleteRelation();
+}
+
+void test4()
+{
+	// Create relation with random order, test to see if record ids stay consistent
+	std::cout << "--------------------" << std::endl;
+        std::cout << "Record ID Test" << std::endl;
+
+	//copied from errorTests
+	try
+        {
+                File::remove(relationName);
+        }
+        catch(FileNotFoundException e)
+        {
+        }
+
+        file1 = new PageFile(relationName, true);
+
+        // initialize all of record1.s to keep purify happy
+        memset(record1.s, ' ', sizeof(record1.s));
+        PageId new_page_number;
+        Page new_page = file1->allocatePage(new_page_number);
+
+	RecordId testrid;
+	RecordId currrid;
+	std::string testrec;
+
+	std::cout << "Inserting tuples..." << std::endl;
+
+        // Insert a bunch of tuples into the relation.
+        for(int i = 0; i <10; i++ )
+        {
+                sprintf(record1.s, "%05d string record", i);
+                record1.i = i;
+                record1.d = (double)i;
+                std::string new_data(reinterpret_cast<char*>(&record1), sizeof(record1));		
+
+                while(1)
+                {
+                        try
+                        {
+                                currrid = new_page.insertRecord(new_data);
+                                break;
+                        }
+                        catch(InsufficientSpaceException e)
+                        {
+                                file1->writePage(new_page_number, new_page);
+                                new_page = file1->allocatePage(new_page_number);
+                        }
+                }
+		if (i == 5) {
+			testrid = currrid;
+			testrec = new_data;
+		}
+        }
+
+	std::cout << "Tuples inserted." << std::endl;
+
+        file1->writePage(new_page_number, new_page);
+
+        BTreeIndex index(relationName, intIndexName, bufMgr, offsetof(tuple,i), INTEGER);
+
+	std::cout << "Index created." << std::endl;
+
+	int int5 = 5;
+	int int6 = 6;
+
+	std::cout << "Starting scan..." << std::endl;
+	index.startScan(&int5, GTE, &int6, LT);
+	// ^throw segfault and unsure why
+
+	std::cout << "Finished scan." << std::endl;
+	std::string testdata = new_page.getRecord(testrid);
+	
+	checkPassFail(testrec, testdata);
+
+	deleteRelation();
+}
+
+void test5()
+{
+	// Create relation with random order, test to see if tree splits correctly
+	std::cout << "--------------------" << std::endl;
+        std::cout << "createRelationRandom" << std::endl;
+        createRelationRandom();
+        //tests
+        deleteRelation();
 }
 
 // -----------------------------------------------------------------------------
