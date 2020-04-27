@@ -43,8 +43,6 @@ namespace badgerdb
 			const int attrByteOffset,
 			const Datatype attrType)
 	{
-		//printf("IN CONSTRUCTOR\n");
-
 		//Taken from spec: How to get name of index file
 		std::ostringstream idxStr;
 		idxStr << relationName << '.' << attrByteOffset;
@@ -75,12 +73,8 @@ namespace badgerdb
 		if (!(File::exists(outIndexName))) {
 			this->file = new BlobFile(outIndexName, true);
 
-			//printf("FILE DOESN'T EXIST YET\n");
-
 			// Before looking through and adding things, lets alloc metadata at page 0
-			//printf("ALLOCING HEADER\n");
 			bufMgr->allocPage(this->file, this->headerPageNum, myMetaPage);
-			//printf("HEADER PAGE NUM: %u\n", this->headerPageNum);
 			myMetaInfo = (IndexMetaInfo*)(myMetaPage);
 			// Since we already set headerPageNum to 0 by default, this is redundant
 			// this->headerPageNum = 0;
@@ -109,8 +103,6 @@ namespace badgerdb
 					// Edited by mike to be int*
 					int * key = ((int *)(record + offsetof (RECORD, i)));
 
-					//std::cout << "Extracted : " << key << std::endl;
-					//printf("INSERTING ENTRY NUM: %d WITH KEY %d\n", counter, *key);
 					insertEntry(key, scanRid);
 					counter++;
 				}
@@ -155,30 +147,18 @@ namespace badgerdb
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	const void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 	{
-		//printf("IN INSERT\n");
 
 		int * keyToInsert;
 		keyToInsert = (int*) (key);
 		RIDKeyPair<int> ridKeyCombo;
 		ridKeyCombo.set(rid, *(keyToInsert));
 
-
-		// FIXME FIXME DEBUG
-		//	Page* myMetaPage;
-		//	IndexMetaInfo* myMetaInfo;
-		//	this->bufMgr->readPage(this->file, this->headerPageNum, myMetaPage);
-		//	myMetaInfo = (IndexMetaInfo*) myMetaPage;
-		//	std::cout << myMetaInfo->rootPageNo << std::endl;
-
 		// If we don't have a root yet, let's make a root, update info
-		//printf("On Insert\n");
 		if (this->rootPageNum == 0) {
 
-			//printf("INSERTING ROOT\n");
 			Page * newNode;
 			PageId newPageNum;
 			bufMgr->allocPage(this->file, newPageNum, newNode);
-			//printf("ROOT PAGE NUM: %u\n", newPageNum);
 
 			// Insert into root at index 1
 			insertLeafHelper((LeafNodeInt *) newNode, ridKeyCombo, 0);
@@ -206,7 +186,6 @@ namespace badgerdb
 		std::stack<int> path;
 
 		// Call to recursive helper
-		// FIXME: If root was a leaf and just got split we might have to handle that here
 		insertHelper(this->rootPageNum, ridKeyCombo, path);
 
 	}
@@ -241,9 +220,7 @@ namespace badgerdb
 		////////////////////////////////////////////////////////////////////////////////////
 		//////////////////////////////// LEAF SECTION //////////////////////////////////////
 		////////////////////////////////////////////////////////////////////////////////////
-		//printf("RIGHT BEFORE CHECKLEAF\n");
 		if ( (checkLeaf1 && checkLeaf2) || this->rootLeaf) {
-			//printf("IN CHECKLEAF\n");
 			// Our parent was right before a leaf, we must be a leaf
 			myLeaf = (LeafNodeInt *) myNode;
 
@@ -253,26 +230,16 @@ namespace badgerdb
 			// If we are at max capacity
 			if (numEntries == INTARRAYLEAFSIZE - 1 ) {
 
-				//printf("SPLITTING LEAF\n");
-
 				// Alloc new leaf
 				PageId newPageNum = 0;
 				Page * newPage;
 				LeafNodeInt* newLeaf;
-				//printf("BEFORE ALLOC: new page num: %u\n", newPageNum);
-				//printf("Trying to insert key: %d\n", myKey);
-				//	printLeaf(myLeaf);
 				this->bufMgr->allocPage(this->file, newPageNum, newPage);
-				//printf("AFTER ALLOC: new page num: %u\n", newPageNum);
 
 				newLeaf = (LeafNodeInt*) newPage;
 
-				//printf("numEntries is %d\n", numEntries);
-
 				// Split and insert new leaf
 				splitLeafAndInsert(myLeaf, newLeaf, ridKey, numEntries);
-
-				//printf("THROUGH SPLIT AND INSERT\n");
 
 				// Improve readability
 				LeafNodeInt* leftLeaf;
@@ -297,17 +264,13 @@ namespace badgerdb
 				returnPair.key = returnKey;
 				returnPair.pageNo = returnPageNum;
 
-				//printf("makes to rootleaf\n");
-
 				// If the node we are currently on is root
 				if ( this->rootLeaf ) {
 
-					//printf("IN ROOTLEAF SPLIT\n");
 					// We need to make new root node cuz we have nothing to return to?
 					PageId newRootPageNum;
 					Page * newRootPage;
 					bufMgr->allocPage( this->file, newRootPageNum, newRootPage);
-					//printf("ROOTLEAF SPLIT NUM%u\n", newRootPageNum);
 					NonLeafNodeInt * newRoot = (NonLeafNodeInt*) newRootPage;
 					for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
 						newRoot->keyArray[i] = 0;
@@ -354,8 +317,6 @@ namespace badgerdb
 
 				// Signal that we didn't split to calling function
 
-				//printf("not splitting leaf\n");
-
 				// Return a PageKeyPair with 0
 				PageKeyPair<int> zeroRet;
 				zeroRet.key = 0;
@@ -378,7 +339,6 @@ namespace badgerdb
 			int numEntries = getNumEntries((Page *) myNonLeaf, false);
 
 			// Determine which page to to recurse down into
-			// TODO: Double check correct page
 			for (int i = 0; i < numEntries; i++) {
 				// When we hit first time it's under key array, we have pageNo and break
 				if (myKey < myNonLeaf->keyArray[i]) {
@@ -416,10 +376,8 @@ namespace badgerdb
 
 			// We can hold one more spot in non-leaves than the size
 			//////////////////// PROPAGATE SPLIT UP ////////////////////////////////////
-			// TODO: Check this is right number, it or leaf one might be off by one
 			if (numEntries == INTARRAYNONLEAFSIZE) {
 
-				//printf("SPLITTING NONLEAF\n");
 				// Alloc new non-Leaf
 				PageId newPageNum;
 				Page * newPage;
@@ -427,7 +385,6 @@ namespace badgerdb
 				bufMgr->allocPage(this->file, newPageNum, newPage);
 				newNonLeaf = (NonLeafNodeInt*) newPage;
 
-				//printf("NON LEAF SPLIT NUM%u\n", newPageNum);
 				int returnKey = splitNonLeafAndInsert(myNonLeaf, newNonLeaf, splitInfo, numEntries);
 				// Get all of the stuff we need to return
 				// The pageNo of the rightLeaf node we just made
@@ -441,11 +398,9 @@ namespace badgerdb
 				if (path.size() == 0) {
 
 					// We need to make new root node cuz we have nothing to return to?
-					//printf("SPLITTING NON LEAF ROOT\n");
 					PageId newRootPageNum;
 					Page * newRootPage;
 					bufMgr->allocPage( this->file, newRootPageNum, newRootPage);
-					//printf("NONLEAF ROOT PAGE NUM: %u\n", newRootPageNum);
 					NonLeafNodeInt * newRoot = (NonLeafNodeInt*) newRootPage;
 					for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
 						newRoot->keyArray[i] = 0;

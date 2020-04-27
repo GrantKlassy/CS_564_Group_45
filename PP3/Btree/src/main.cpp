@@ -142,7 +142,7 @@ int main(int argc, char **argv)
 	test2();
 	test3();
 	// test4();
-	errorTests();
+	// errorTests();
 
 	return 1;
 }
