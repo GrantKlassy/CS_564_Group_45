@@ -18,3 +18,8 @@ commit-msg:
           echo "ERROR: Co-Authored-By trailer detected — not allowed in grantklassy repos"
           exit 1
         fi
+
+pre-push:
+  jobs:
+    - name: repo-standards
+      run: task check
