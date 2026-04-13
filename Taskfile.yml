@@ -1,0 +1,53 @@
+version: "3"
+
+tasks:
+  check:
+    desc: Run all standard repo checks
+    cmds:
+      - task: check:author
+      - task: check:readme
+      - task: check:license
+      - task: check:history
+
+  check:author:
+    desc: Verify git identity is GrantKlassy
+    cmds:
+      - |
+        NAME=$(git config user.name)
+        if [ "$NAME" != "GrantKlassy" ]; then
+          echo "ERROR: git user.name is '$NAME' — expected 'GrantKlassy'"
+          exit 1
+        fi
+        echo "OK: git user.name is GrantKlassy"
+
+  check:readme:
+    desc: Verify README.md exists
+    cmds:
+      - |
+        if [ ! -f README.md ]; then
+          echo "ERROR: README.md missing"
+          exit 1
+        fi
+        echo "OK: README.md exists"
+
+  check:license:
+    desc: Verify LICENSE.txt exists
+    cmds:
+      - |
+        if [ ! -f LICENSE.txt ]; then
+          echo "ERROR: LICENSE.txt missing"
+          exit 1
+        fi
+        echo "OK: LICENSE.txt exists"
+
+  check:history:
+    desc: Verify no Co-Authored-By in git history
+    cmds:
+      - |
+        COUNT=$(git log --all --grep="Co-Authored-By" --oneline | wc -l)
+        if [ "$COUNT" -gt 0 ]; then
+          echo "ERROR: $COUNT commits contain Co-Authored-By trailers"
+          git log --all --grep="Co-Authored-By" --oneline
+          exit 1
+        fi
+        echo "OK: no Co-Authored-By contamination"

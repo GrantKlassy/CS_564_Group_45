@@ -1,0 +1,20 @@
+pre-commit:
+  jobs:
+    - name: check-author
+      run: |
+        NAME=$(git config user.name)
+        if [ "$NAME" != "GrantKlassy" ]; then
+          echo "ERROR: git user.name is '$NAME' — expected 'GrantKlassy'"
+          echo "  git config user.name 'GrantKlassy'"
+          echo "  git config user.email '28637437+GrantKlassy@users.noreply.github.com'"
+          exit 1
+        fi
+
+commit-msg:
+  jobs:
+    - name: no-coauthor
+      run: |
+        if grep -qi "co-authored-by" {1}; then
+          echo "ERROR: Co-Authored-By trailer detected — not allowed in grantklassy repos"
+          exit 1
+        fi
