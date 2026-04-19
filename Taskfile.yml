@@ -1,5 +1,13 @@
 version: "3"
 
+# Repo-local custom tasks (optional). Any Taskfile.local.yml in the repo root
+# is loaded under the `local:` namespace — e.g. `task local:ship`. Invoke the
+# local `check` task (if defined) as part of the standard check fan-out.
+includes:
+  local:
+    taskfile: ./Taskfile.local.yml
+    optional: true
+
 tasks:
   check:
     desc: Run all standard repo checks
@@ -8,6 +16,14 @@ tasks:
       - task: check:readme
       - task: check:license
       - task: check:history
+      - task: check:last-updated
+      - task: check:env-hygiene
+      - task: check:gitignore-baseline
+      - cmd: |
+          if [ -f Taskfile.local.yml ]; then
+            task local:check
+          fi
+        silent: true
 
   check:author:
     desc: Verify git identity is GrantKlassy
@@ -51,3 +67,27 @@ tasks:
           exit 1
         fi
         echo "OK: no Co-Authored-By contamination"
+
+  check:last-updated:
+    desc: Verify README "Code last updated" badge matches the most recent substantive commit
+    cmds:
+      - ~/git/grantklassy/tools/update-last-updated --check .
+
+  check:env-hygiene:
+    desc: Verify .env hygiene (.env.example exists, .env is gitignored and not tracked)
+    cmds:
+      - ~/git/grantklassy/tools/rules/env_hygiene.sh .
+
+  check:gitignore-baseline:
+    desc: Verify .gitignore has baseline security-adjacent entries
+    cmds:
+      - ~/git/grantklassy/tools/rules/gitignore_baseline.sh .
+
+  fix:badge:
+    desc: Write the README "Code last updated" badge and stage it (pre-commit flow — uses staged files to predict substantivity)
+    cmds:
+      - ~/git/grantklassy/tools/update-last-updated --pre-commit .
+      - |
+        if [ -f README.md ]; then
+          git add README.md
+        fi

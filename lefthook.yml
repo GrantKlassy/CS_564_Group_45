@@ -9,6 +9,12 @@ pre-commit:
           echo "  git config user.email '28637437+GrantKlassy@users.noreply.github.com'"
           exit 1
         fi
+    - name: update-badge
+      run: task fix:badge
+    - name: env-hygiene
+      run: task check:env-hygiene
+    - name: gitignore-baseline
+      run: task check:gitignore-baseline
 
 commit-msg:
   jobs:

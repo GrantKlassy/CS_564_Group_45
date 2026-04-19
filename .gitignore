@@ -1,0 +1,7 @@
+.env
+.env.local
+
+# Added by tools gitignore_baseline
+.env.*.local
+*.pem
+*.key
